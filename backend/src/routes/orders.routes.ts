@@ -14,6 +14,7 @@ import { toPublicReview } from '@shared/review.js'
 import { canSellNow } from '@shared/subscription.js'
 import { newShortId } from '../db/ids.js'
 import { requireRole } from '../middleware/auth.js'
+import { demoOrderProblem } from '../demo.js'
 import { notifyOrderAdvanced, notifyOrderCancelled, notifyOrderPlaced, notifyPaymentClaimed } from '../push/notify.js'
 
 export const ordersRouter: Router = Router()
@@ -155,6 +156,14 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
         error: 'Seller unavailable',
         messageMr: 'ही विक्रेती सध्या ऑर्डर घेत नाही',
       })
+      return
+    }
+    // Play's reviewer stays inside the demo shop, and nobody real orders
+    // from it - see demo.ts. Refused here, where the order is made, so a
+    // product id kept from before the shop was hidden is no way round it.
+    const demo = demoOrderProblem(seller, auth)
+    if (demo) {
+      res.status(409).json(demo)
       return
     }
     /**

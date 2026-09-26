@@ -26,6 +26,7 @@ import { consumeTicket } from '../auth/tickets.js'
 import { recordAuthEvent } from '../auth/events.js'
 import { hashIp, maskPhone } from '../auth/crypto.js'
 import { hit, LIMITS } from '../auth/rateLimit.js'
+import { demoHidden } from '../demo.js'
 
 export const sellersRouter: Router = Router()
 
@@ -462,8 +463,9 @@ sellersRouter.get('/:id', (req, res) => {
   const seller = getDb().sellers.find((s) => s.id === req.params.id)
   // Same rule as /slug/:slug. A seller who has not been approved, or who has
   // been blocked, is not public - customers only ever see approved shops.
-  // A paused shop is not public either, until she renews.
-  if (!seller || !canSellNow(seller)) {
+  // A paused shop is not public either, until she renews. The demo shop is
+  // public to the demo buyer alone (demo.ts).
+  if (!seller || !canSellNow(seller) || demoHidden(seller, req.auth)) {
     res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
