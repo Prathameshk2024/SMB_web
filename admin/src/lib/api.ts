@@ -188,6 +188,22 @@ export type SellerRow = Seller & {
   slots: { used: number; total: number }
   /** Where her six months stand, on the server's clock. */
   subscription?: SubscriptionView
+  /** Buyers' open reports about the SHOP. Listing reports sit on the Products screen. */
+  reports?: Report[]
+}
+
+/**
+ * A buyer sellers have reported. She has no page in the console, so this row
+ * is her page: what was said, from which order, her number, and whether she
+ * is already blocked - read off her record at request time.
+ */
+export interface ReportedBuyer {
+  customerId: string
+  name: string
+  phone: string
+  blocked: boolean
+  blockReason?: string
+  reports: Report[]
 }
 
 /**
@@ -271,9 +287,25 @@ export const api = {
   resolveComplaint: (id: string) =>
     post<{ complaint: Complaint }>(`/admin/complaints/${id}/resolve`, {}),
 
-  sellers: () => get<{ sellers: SellerRow[] }>('/admin/sellers'),
+  sellers: () => get<{ sellers: SellerRow[]; reportedCount: number }>('/admin/sellers'),
 
   sellerDetail: (id: string) => get<SellerDetail>(`/admin/sellers/${id}`),
+
+  /** Looked at, and the shop stays up. */
+  clearSellerReports: (id: string) => post<{ ok: true }>(`/admin/sellers/${id}/clear-reports`, {}),
+
+  /** Buyers that sellers have reported, grouped by buyer. */
+  reportedBuyers: () => get<{ buyers: ReportedBuyer[]; reportedCount: number }>('/admin/customers/reported'),
+
+  clearCustomerReports: (id: string) =>
+    post<{ ok: true }>(`/admin/customers/${id}/clear-reports`, {}),
+
+  /**
+   * Refuse a buyer's number - no sign-in, no orders - or lift it. Closing
+   * her account is not a ban; this is. The reason is required to block.
+   */
+  blockCustomer: (body: { phone: string; blocked: boolean; reason?: string }) =>
+    post<{ customer: { id: string; blocked?: boolean } }>('/admin/customers/block', body),
 
   grantSlots: (id: string, packs: number) =>
     post<{ seller: Seller }>(`/admin/sellers/${id}/grant-slots`, { packs }),

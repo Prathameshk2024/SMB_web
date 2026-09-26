@@ -7,7 +7,7 @@ import {
 import { isMaharashtraPincode } from '@shared/seller.js'
 import { normalizeUtr, utrProblem } from '@shared/payment.js'
 import { getDb, save } from '../db/store.js'
-import { recordOrderCustomer } from '../db/customers.js'
+import { BLOCKED_MR, isCustomerBlocked, recordOrderCustomer } from '../db/customers.js'
 import { cancelOrder } from '../db/orderCancel.js'
 import { ordersToRate, writeRatings } from '../db/reviews.js'
 import { toPublicReview } from '@shared/review.js'
@@ -117,6 +117,15 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
   }
   if (!b.address?.pincode) {
     res.status(400).json({ error: 'Address required', messageMr: 'पत्ता निवडा' })
+    return
+  }
+
+  // Blocking revokes her sessions, so this is for a token that was minted
+  // before the block and is still inside the 400ms write window - and for
+  // the rule to be here, where the order is made, rather than only at the
+  // door.
+  if (isCustomerBlocked(db, auth.customerId!)) {
+    res.status(403).json({ error: 'Blocked', messageMr: BLOCKED_MR })
     return
   }
 

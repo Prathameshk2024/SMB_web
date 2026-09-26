@@ -1,7 +1,9 @@
 import { Router, type Request, type Response } from 'express'
 import { isValidPhone, normalizePhone, samePhone } from '@shared/seller.js'
 import { getDb, save } from '../db/store.js'
-import { customerIdFor, findCustomer, isRegisteredCustomer } from '../db/customers.js'
+import {
+  BLOCKED_MR, customerIdFor, findCustomer, isCustomerBlocked, isRegisteredCustomer,
+} from '../db/customers.js'
 import { callerIp, requireRole } from '../middleware/auth.js'
 import { signToken } from '../auth/tokens.js'
 import {
@@ -227,6 +229,20 @@ authRouter.post('/otp/verify', async (req, res) => {
    * never be asked her name at all.
    */
   const customerId = customerIdFor(phone)
+
+  /**
+   * A blocked number passes the OTP - it is still her phone - and gets no
+   * session. Checked AFTER the code, so the block is not a way to learn
+   * whether a number is blocked without owning it. The message names no
+   * reason: that is the desk's record, not hers to read here.
+   */
+  if (isCustomerBlocked(db, customerId)) {
+    recordAuthEvent(db, { type: 'blocked', subject: maskPhone(phone), role: 'customer', ip })
+    save()
+    res.status(403).json({ error: 'Blocked', messageMr: BLOCKED_MR })
+    return
+  }
+
   const registered = isRegisteredCustomer(db, customerId)
   const name = registered ? findCustomer(db, customerId)?.name : undefined
 

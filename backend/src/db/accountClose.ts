@@ -209,7 +209,23 @@ export function closeCustomer(db: Db, customerId: string, phone: string, now = D
   }
 
   const i = db.customers.findIndex((c) => c.id === customerId)
-  if (i >= 0) db.customers.splice(i, 1)
+  const row = db.customers[i]
+  if (row?.blocked) {
+    /**
+     * A BLOCKED BUYER'S ROW STAYS, emptied of everything but the number.
+     *
+     * The block is keyed on the phone, and a close that dropped the row
+     * would lift it: she signs in again, a fresh row is built from her
+     * number, and she is back. Keeping the number of somebody who has been
+     * refused the market is the one retention deletion does not undo, and
+     * the privacy policy says so.
+     */
+    row.name = ''
+    row.addresses = []
+    row.updatedAt = new Date(now).toISOString()
+  } else if (i >= 0) {
+    db.customers.splice(i, 1)
+  }
 
   forgetSessions(db, customerId, now)
 }
