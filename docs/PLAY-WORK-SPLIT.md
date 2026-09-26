@@ -17,7 +17,7 @@ When your change needs words in a file the other track owns (the policy, a scree
 
 - [x] **This repo:** the demo-number send-limit exemption, the privacy policy's developer name and the docs, committed and pushed to `prathamesh2` on 27 September. The policy's "published on Google Play under Team Zenith" sentence went live with it, a little ahead of publication.
 - [x] **Wrapper repo:** the package rename and both `google-services.json` files, committed and pushed to `sub-main`. Nothing deploys from that repo.
-- [ ] Each person pulls `prathamesh2` and creates a branch from it: `play/server` for Track 1 and `play/app` for Track 2.
+- [x] Track 1: `play/server` created from `prathamesh2` and pushed on 27 September. Track 2: `play/app` still to create.
 - [ ] **Do not push to `prathamesh2` until the joint steps at the end.** Both Vercel projects deploy from it, so a push there is a live release to real sellers and buyers. Pushing a `play/*` branch is fine; Vercel only makes a preview of it.
 
 ## Track 1: server, data and admin console
@@ -72,6 +72,26 @@ About 2 working days, plus the wait for the college in 2.12. Run `npm test` in `
 | After 2.3 | Track 2 | Correct the reporting claim in PLAY-STORE.md (2.9) |
 
 Everything else is independent.
+
+### Track 1 → Track 2: the facts, as built (27 September, branch `play/server`)
+
+All twelve Track 1 tasks are on `play/server`. What Track 2 needs from them:
+
+**Reports (for 2.3).** `POST /reports` takes `targetType` of `product`, `review`, `seller` or `customer`, with `targetId`, `reason`, `note` (only for `other`) and, for a buyer, an optional `orderId`. The reasons per target are `reasonsFor(target)` in `shared/src/report.ts`; `REPORT_REASONS` still means the product list, so `ReportSheet` should switch to `reasonsFor(targetType)` and `reportProblems(input, targetType)`. New reason codes needing `report.reason.*` strings in `frontend/src/i18n/strings.ts`, both languages: `noDelivery` (shop took money, sent nothing), `abusive`, `noShow` (ordered, never took delivery), `falsePayment` (said they paid, no money came). The admin console's wording for them is in `admin/src/i18n/strings.ts` if you want to match it. A seller reports a buyer with `targetId: order.customerId` and `orderId: order.id`; the server refuses (404) unless an order exists between them. A buyer reports a shop with `targetId: seller.id`. `mayReport(role, target)` says who may report what, so a seller's screen must not offer "report this listing".
+
+**Blocked buyers.** A blocked number gets `403 { error: 'Blocked', messageMr }` from `/auth/otp/verify` after the OTP passes, and the same from `POST /orders`. The OTP screen should show `messageMr` rather than the generic "wrong code" line for a 403.
+
+**Deletion (for 2.6 and the deletion page).**
+- A closed seller's **listings are removed**: each is emptied (name, photo, ingredients, material, FSSAI number) the moment the 7-day window ends, and the photo is destroyed; the empty row disappears from the database shortly after.
+- **Review text stays**, with the stars, under the `ग्राहक` placeholder name. This was already true and is now in the shared rule.
+- A closed buyer's **id is replaced by a random tombstone** on her orders, reviews, reports and complaints, so signing in again with the same number gives a new, empty account. Her complaint to the desk keeps its words and loses her name and phone.
+- A **blocked** buyer's phone number is kept after deletion, so the block holds. The policy should say a number blocked for misuse is retained for that purpose.
+- **Backups:** deleted data leaves the nightly mirror and the backup photos on the night after deletion, and the dated database files within **12 months**. That is the sentence for the policy and the deletion page.
+- The security log (auth events) is now pruned on the clock, so "90 days" is true.
+
+**Demo account.** The demo shop is invisible to everyone but the demo buyer, and orders between demo and real accounts are refused on the server with a Marathi message (`demoOrderProblem` in `backend/src/demo.ts`). Nothing in the app needs to change for it.
+
+**Categories.** `beauty` is now "Beauty & Personal care" / "सौंदर्य व निगा" from the API; `categoryPhoto.ts` keys on the id and is unaffected.
 
 ## Together, at the end
 

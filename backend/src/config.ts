@@ -214,6 +214,20 @@ export const SESSION_SECRET = readSessionSecret()
  */
 export const SEED_DEMO_DATA = /^(1|true|yes)$/i.test(firstOf('SEED_DEMO_DATA') ?? '')
 
+/**
+ * And never in production, at all. The demo sellers carry real-looking phone
+ * numbers and a college's UPI ID; an empty live database is a database to
+ * leave empty, not to fill with three invented women the day a reviewer
+ * opens the app. A variable copied from a laptop's .env into a Cloud Run
+ * revision is exactly how it would happen, so the server refuses to start.
+ */
+if (SEED_DEMO_DATA && process.env.NODE_ENV === 'production') {
+  throw new Error(
+    'SEED_DEMO_DATA is set in production. The demo sellers are invented and must never\n' +
+      '  be shown to real customers. Unset it on the host and deploy again.',
+  )
+}
+
 /* ------------------------------------------------------------------ */
 /* CORS                                                                */
 /* ------------------------------------------------------------------ */

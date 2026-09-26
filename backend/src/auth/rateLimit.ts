@@ -1,3 +1,5 @@
+import { DEMO_PHONE } from '../demo.js'
+
 /**
  * RATE LIMITING
  * =============
@@ -74,7 +76,7 @@ export const LIMITS = {
  * day. The verify limits and every per-IP limit still apply to it. If the
  * demo number changes in MSG91, change it here too.
  */
-export const SEND_LIMIT_EXEMPT: ReadonlySet<string> = new Set(['9579642050'])
+export const SEND_LIMIT_EXEMPT: ReadonlySet<string> = new Set([DEMO_PHONE])
 
 /**
  * Count one attempt against a limit.

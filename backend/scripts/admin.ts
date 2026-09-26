@@ -275,11 +275,25 @@ async function closeCustomer(phone: string): Promise<void> {
   console.log(c.green(`\n  ✓ Buyer +91 ${phone} closed; removed from ${out.ordersCleared} order(s).\n`))
 }
 
+/**
+ * Block, or unblock, a buyer by her number. Closing her account is not a
+ * ban; this is. The reason is required by the server and kept for the desk.
+ */
+async function blockCustomer(phone: string, blocked: boolean): Promise<void> {
+  await call('/api/admin/customers/block', {
+    method: 'POST',
+    body: JSON.stringify({ phone, blocked, reason: flag('--reason') }),
+  })
+  console.log(c.green(`\n  ✓ Buyer +91 ${phone} ${blocked ? 'blocked: no sign-in, no orders' : 'unblocked'}.\n`))
+}
+
 async function main(): Promise<void> {
   const [cmd = 'pending', a1, a2] = process.argv.slice(2)
   await login()
 
   switch (cmd) {
+    case 'block-customer': await blockCustomer(a1!, true); break
+    case 'unblock-customer': await blockCustomer(a1!, false); break
     case 'pending': printPayments(await listPending()); break
     case 'approve': await approve(a1, a2 === '--verified'); break
     case 'reject': await reject(a1!, a2 ?? 'UTR did not match the bank statement'); break
@@ -304,6 +318,9 @@ async function main(): Promise<void> {
                                 close a seller's account on her request (7 days to undo)
     close-customer <phone> --via phone|whatsapp|email --called-back [--note "..."]
                                 close a buyer's account on her request (at once)
+    block-customer <phone> --reason "..."
+                                refuse a buyer's number: no sign-in, no orders, survives a close
+    unblock-customer <phone>    lift it
 `)
   }
 }

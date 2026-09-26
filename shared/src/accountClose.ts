@@ -152,13 +152,51 @@ export const SELLER_PII_FIELDS = [
   'pincodes',
   'notices',
   'blockReason',
+  // Her licence number is issued to her by name.
+  'fssai',
+  // Built from her shop name; the share link it made stops answering.
+  'shopSlug',
+  // Her own words about why she left, or the staff note naming the channel.
+  // The auth event keeps the staff record; this copy is hers and goes.
+  'closeNote',
 ] as const
 
 /** The same, for a payment row: the ledger keeps the money, not the payer. */
 export const PAYMENT_PII_FIELDS = ['phone', 'payerUpi', 'screenshotUrl'] as const
 
-/** And for the buyer's copies carried on an order she placed. */
-export const ORDER_BUYER_PII_FIELDS = ['customerPhone', 'address'] as const
+/**
+ * And for the buyer's copies carried on an order she placed. The landmark
+ * is the doorstep - "opposite the temple" - and goes with the address line;
+ * the pincode is a village and stays.
+ */
+export const ORDER_BUYER_PII_FIELDS = ['customerPhone', 'address', 'landmark'] as const
+
+/**
+ * A closed seller's listings. The row is kept (see `scrubProducts` in the
+ * backend for why a delete is not always allowed) and everything that
+ * described the product she made is emptied: its name, its photograph, what
+ * was in it, her licence number on it.
+ */
+export const PRODUCT_PII_FIELDS = [
+  'name', 'nameEn', 'imageUrl', 'imagePublicId', 'ingredients', 'material', 'fssai',
+] as const
+
+/** And a complaint she wrote to the desk: her words stay, her contact goes. */
+export const COMPLAINT_PII_FIELDS = ['name', 'phone'] as const
+
+/**
+ * A BUYER'S ID IS HER PHONE NUMBER - `c-9011223344` - so blanking the phone
+ * field on her orders while leaving `customerId` on them erased nothing, and
+ * worse: `/orders/mine` looks orders up by that id, so signing in again with
+ * the same number handed her the whole history of the account she had just
+ * deleted. Closing now rewrites the id on everything she touched to one
+ * random tombstone per closing, which no sign-in can ever produce.
+ */
+export const CLOSED_CUSTOMER_PREFIX = 'c-closed-'
+
+export function isClosedCustomerId(id: string): boolean {
+  return id.startsWith(CLOSED_CUSTOMER_PREFIX)
+}
 
 /* ------------------------------------------------------------------ */
 /* Closing an account for somebody who cannot sign in                 */

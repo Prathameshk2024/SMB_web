@@ -138,12 +138,12 @@ export async function destroyImage(publicId: string | undefined): Promise<boolea
 
 uploadsRouter.post('/delete', requireRole('seller', 'admin'), async (req, res) => {
   if (!usingCloudinary || !cloudinary) {
-    res.status(503).json({ error: 'Image uploads are not configured' })
+    res.status(503).json({ error: 'Image uploads are not configured', messageMr: 'फोटो अपलोड सध्या बंद आहे' })
     return
   }
   const publicId = String(req.body?.publicId ?? '')
   if (!publicId.startsWith(`${cloudinary.folder}/`)) {
-    res.status(400).json({ error: 'Not an image of this app' })
+    res.status(400).json({ error: 'Not an image of this app', messageMr: 'हा फोटो या ॲपचा नाही' })
     return
   }
 
