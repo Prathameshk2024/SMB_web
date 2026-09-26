@@ -120,9 +120,11 @@ export const en: LegalSet = {
               'Cloudinary: storing and resizing photos, including payment screenshots and QR codes.',
               'Vercel: hosting the website.',
               'MSG91: sending the OTP by SMS.',
+              'GitHub (Microsoft): running the nightly backup, which reads the whole database to copy it.',
               'Google speech recognition: only when you tap the microphone to speak instead of typing. Your phone sends that recording to Google to turn it into words; we never receive the recording.',
             ],
           },
+          'Google Cloud and Vercel keep a technical log of each request to the app, with the IP address and the phone or browser details, for up to 30 days, to keep the service working and secure.',
           'Some of these services may store information on servers outside India. We use them only as the law allows.',
         ],
       },
@@ -135,7 +137,7 @@ export const en: LegalSet = {
           {
             list: [
               `A seller's shop closes at once and she is signed out everywhere. After ${UNDO_DAYS} days her name, phone, address, UPI ID, QR code, photos, readiness answers and payment screenshots are erased. She can stop this by signing in during those ${UNDO_DAYS} days.`,
-              'A buyer\'s account is closed at once. Her name, phone and address are removed from her past orders, and her reviews keep their stars but lose her name.',
+              'A buyer\'s account is closed at once. Her name, phone and address are removed from her past orders, and her reviews keep their stars and their words but lose her name.',
               'We keep past orders (what was bought, the price, the date and the pincode), because they are also the other person\'s record.',
               'We keep the record of each ₹50 payment (the amount, the date and the UTR) for as long as the college\'s accounting rules require.',
               'We keep complaints, without your contact details, as a record of how they were handled.',
@@ -295,9 +297,9 @@ export const en: LegalSet = {
       },
       {
         id: 'report',
-        heading: 'Reporting a listing or a review',
+        heading: 'Reporting a listing, a review or a person',
         body: [
-          'Buyers can report a listing, and buyers and sellers can report a review, with the Report button beside it. Choose a reason. A report does not remove anything by itself: college staff look at it and decide. The seller is never told who reported her.',
+          'Buyers can report a listing, a review or a shop, and sellers can report a review or a buyer they have had an order from, with the Report button beside it. Choose a reason. A report does not remove anything by itself: college staff look at it and decide. Nobody is told who reported them.',
         ],
       },
       {
@@ -308,6 +310,7 @@ export const en: LegalSet = {
             list: [
               'Selling or listing anything illegal, unsafe, stolen, counterfeit, or that needs a licence you do not have.',
               'Alcohol, tobacco, drugs, medicines, weapons, or animal products whose sale is banned.',
+              'Claims that a product treats, cures or prevents an illness, and health supplements or ayurvedic or herbal medicines.',
               'Photos you do not own, or photos of somebody else\'s product.',
               'False claims about a product, its ingredients or its price.',
               'Harassing, threatening or cheating a buyer, a seller or college staff.',
