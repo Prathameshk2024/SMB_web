@@ -638,6 +638,7 @@ const mr: Record<string, string> = {
 
   /* ---- the public page Google Play asks for ------------------------ */
   'del.title': 'खाते बंद करा',
+  'del.forApp': 'शांताई महिला बाजारमधील तुमचे खाते या पानावरून बंद करता येते.',
 
   // ---- policies (frontend/src/legal) ------------------------------------
   'legal.title': 'धोरणे आणि अटी',
@@ -1442,6 +1443,7 @@ const en: Record<string, string> = {
   'close.reason.other': 'Another reason',
 
   'del.title': 'Delete your account',
+  'del.forApp': 'This page is for deleting your account in the Shantai Mahila Bazar app.',
 
   // ---- policies (frontend/src/legal) ------------------------------------
   'legal.title': 'Policies and terms',
