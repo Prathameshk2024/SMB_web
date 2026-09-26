@@ -95,6 +95,29 @@ export async function listAssets(account: CloudinaryConfig, folder: string): Pro
 }
 
 /**
+ * Remove images from a backup account, by public_id. The Admin API takes
+ * up to a hundred at a time. Only the backup script calls this, only with
+ * ids `photosToPrune` chose, and never against the live account - the
+ * script refuses a live target before it gets here.
+ */
+export async function deleteAssets(account: CloudinaryConfig, publicIds: string[]): Promise<number> {
+  const auth = Buffer.from(`${account.apiKey}:${account.apiSecret}`).toString('base64')
+  let deleted = 0
+  for (let i = 0; i < publicIds.length; i += 100) {
+    const body = new URLSearchParams()
+    for (const id of publicIds.slice(i, i + 100)) body.append('public_ids[]', id)
+    const resp = await fetch(
+      `https://api.cloudinary.com/v1_1/${account.cloudName}/resources/image/upload`,
+      { method: 'DELETE', headers: { Authorization: `Basic ${auth}` }, body },
+    )
+    if (!resp.ok) throw new Error(`deleting from ${account.cloudName} failed: HTTP ${resp.status} ${await resp.text()}`)
+    const result = (await resp.json()) as { deleted?: Record<string, string> }
+    deleted += Object.values(result.deleted ?? {}).filter((v) => v === 'deleted').length
+  }
+  return deleted
+}
+
+/**
  * Upload one image under a given public_id, never replacing one already
  * there. `file` is either a URL, which Cloudinary fetches itself so nothing
  * passes through this machine, or the bytes of a file on disk.
