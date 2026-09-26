@@ -136,14 +136,15 @@ export const en: LegalSet = {
           'You can delete your account from the My Profile screen, or ask us to (see "How to delete your account" below). What happens then:',
           {
             list: [
-              `A seller's shop closes at once and she is signed out everywhere. After ${UNDO_DAYS} days her name, phone, address, UPI ID, QR code, photos, readiness answers and payment screenshots are erased. She can stop this by signing in during those ${UNDO_DAYS} days.`,
+              `A seller's shop closes at once and she is signed out everywhere. After ${UNDO_DAYS} days her name, phone, address, UPI ID, QR code, FSSAI number, photos, readiness answers and payment screenshots are erased, and her listings are removed with their photos. She can stop this by signing in during those ${UNDO_DAYS} days.`,
               'A buyer\'s account is closed at once. Her name, phone and address are removed from her past orders, and her reviews keep their stars and their words but lose her name.',
               'We keep past orders (what was bought, the price, the date and the pincode), because they are also the other person\'s record.',
               'We keep the record of each ₹50 payment (the amount, the date and the UTR) for as long as the college\'s accounting rules require.',
               'We keep complaints, without your contact details, as a record of how they were handled.',
+              'If a buyer\'s number was blocked for misuse, we keep that number after her account is deleted, only so the block still holds.',
             ],
           },
-          'We keep backup copies of the database so the market can be restored after a failure. Deleted information can stay in a backup for a limited time until it is replaced. A backup is never used to bring back an account you deleted.',
+          'We keep backup copies of the database so the market can be restored after a failure. Deleted information leaves the nightly backup copy the next night, and the dated monthly copies within 12 months. A backup is never used to bring back an account you deleted.',
         ],
       },
       {

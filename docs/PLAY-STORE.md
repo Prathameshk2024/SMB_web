@@ -51,8 +51,10 @@ Security practices:
 - **Users can request deletion:** Yes, in the app (My Profile → Delete my
   account) and at the deletion URL above.
 - **What is kept after deletion** (disclosed in the privacy policy): past
-  orders without the buyer's identity, the ₹50 payment ledger, complaints
-  without contact details, and backup copies until they roll over.
+  orders without the buyer's identity, reviews' stars and words under a
+  placeholder name, the ₹50 payment ledger, complaints without contact
+  details, a blocked buyer's number (so the block holds), and backup copies:
+  the nightly one until the next night, the monthly ones for 12 months.
 
 ## Other declarations
 
@@ -77,11 +79,9 @@ Security practices:
     screen).
 
   Reports land in the admin console, where admins take listings down, hide
-  reviews and block sellers. The terms forbid abusive content. **Before
-  submitting, check** that the server accepts shop and buyer reports and
-  that admins can block a buyer (track 1.2 and 1.3 in
-  `docs/PLAY-WORK-SPLIT.md`); until then this paragraph claims more than
-  the live app does.
+  reviews, block sellers and block a buyer's number. The terms forbid abusive
+  content. Shop and buyer reports and the buyer block come from tracks 1.2
+  and 1.3; they are true of the live app once `play/server` is deployed.
 - **Permissions:** see `docs/DEPLOY.md` §6 *Permissions*. The release APK
   declares no unused ones; `CAMERA` stays declared on purpose.
 
