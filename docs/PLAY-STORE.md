@@ -32,10 +32,12 @@ Vercel, MSG91) do not count, and neither does a transfer the user starts
 | Personal info | Phone number | Yes | Account management (OTP), App functionality | Required |
 | Personal info | Address | Yes (buyers' delivery addresses; sellers' village, taluka, district, pincode) | App functionality | Required |
 | Personal info | Other info | Yes (seller age, education, SHG, business details, FSSAI number, readiness answers) | App functionality, Analytics (programme impact, aggregated) | Mostly optional |
+| Personal info | User IDs | Yes (the seller's id and SMB ID, the buyer's customer id) | App functionality, Account management | Required |
 | Financial info | User payment info | Yes (seller's UPI ID and QR image) | App functionality | Required for sellers |
 | Financial info | Purchase history | Yes (orders) | App functionality | Required |
 | Financial info | Other financial info | Yes (UTR numbers, ₹50 payment screenshots) | App functionality, Fraud prevention | Required to pay |
 | Photos and videos | Photos | Yes (product photos, QR, payment screenshots, chosen from gallery) | App functionality | Required for sellers |
+| App activity | App interactions | Yes (what a seller does on the platform - listings, completed orders, UPI use - measured for her digital readiness score, `shared/src/readiness.ts`) | Analytics (programme impact, aggregated) | Required for sellers |
 | App activity | Other user-generated content | Yes (reviews, reports, complaints) | App functionality | Optional (rating is required to reorder) |
 | App info and performance | — | No | | |
 | Device or other IDs | Device or other IDs | Yes (FCM push token, on the session) | App functionality (notifications) | Optional (permission) |
@@ -66,11 +68,22 @@ Security practices:
   number changes.
 - **Target audience:** 18 and over. Not designed for children.
 - **Ads:** None.
-- **User-generated content:** Reviews. In-app reporting exists (Report on
-  every listing and review, `POST /reports`), admins can hide reviews, and the
-  terms forbid abusive content.
-- **Permissions:** see `docs/DEPLOY.md` §6 *Permissions*. Remove the unused
-  ones before submitting; `CAMERA` is the one that stays declared on purpose.
+- **User-generated content:** Reviews, listings and shop details. In-app
+  reporting (`POST /reports`, reasons per target in `shared/src/report.ts`):
+  - buyers report a listing (foot of the product page), a review (under each
+    review on the product page) and a shop (the seller card, on the product
+    and shop pages);
+  - sellers report a review (My Reviews) and a buyer (foot of the order
+    screen).
+
+  Reports land in the admin console, where admins take listings down, hide
+  reviews and block sellers. The terms forbid abusive content. **Before
+  submitting, check** that the server accepts shop and buyer reports and
+  that admins can block a buyer (track 1.2 and 1.3 in
+  `docs/PLAY-WORK-SPLIT.md`); until then this paragraph claims more than
+  the live app does.
+- **Permissions:** see `docs/DEPLOY.md` §6 *Permissions*. The release APK
+  declares no unused ones; `CAMERA` stays declared on purpose.
 
 ## Before submitting: things the policy promises that need checking
 
