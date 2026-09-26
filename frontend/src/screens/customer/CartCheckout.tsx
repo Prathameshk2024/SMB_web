@@ -408,7 +408,9 @@ export function Checkout() {
       toast(t('ok.orderPlaced'))
       nav(`/shop/placed/${res.orders[0]!.id}`, { replace: true })
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
+      // A blocked number: said in the screen's language, not the server's Marathi.
+      if (e instanceof ApiError && e.status === 403 && e.message === 'Blocked') setErr(t('err.blocked'))
+      else setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setBusy(false)
     }
