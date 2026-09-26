@@ -1,5 +1,6 @@
 import type { Product } from '@shared/types.js'
 import { destroyImage } from '../routes/uploads.routes.js'
+import { isBulkDelete } from './firestore.js'
 
 /**
  * A REJECTED ROW SHOULD NOT EXIST, SO SWEEP THE ONES THAT DO.
@@ -43,8 +44,16 @@ export function purgeRejected(
  *
  * In place, for the same reason `purgeRejected` is: `db.products` is
  * the live array every route holds a reference to.
+ *
+ * A closed seller's listings become ARCHIVED tombstones too (`scrubProducts`),
+ * and that is why this sweep now stops short of a bulk delete: five empty
+ * rows in a catalogue of eight would be refused by the persist and leave
+ * memory and Firestore disagreeing. They wait, holding nothing, until the
+ * catalogue is big enough for their removal to be an ordinary write.
  */
 export function purgeArchived(products: Product[]): number {
+  const archived = products.filter((p) => p.status === 'ARCHIVED').length
+  if (isBulkDelete(archived, products.length)) return 0
   let removed = 0
   for (let i = products.length - 1; i >= 0; i--) {
     if (products[i]!.status === 'ARCHIVED') {
