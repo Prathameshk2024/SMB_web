@@ -152,7 +152,7 @@ catalogRouter.post('/share/:slug/scan', (req, res) => {
   const db = getDb()
   const seller = db.sellers.find((s) => s.shopSlug === req.params.slug)
   if (!seller) {
-    res.status(404).json({ error: 'Shop not found' })
+    res.status(404).json({ error: 'Shop not found', messageMr: 'हे दुकान सापडले नाही' })
     return
   }
   seller.qrScans += 1

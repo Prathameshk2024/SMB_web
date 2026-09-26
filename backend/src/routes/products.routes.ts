@@ -9,6 +9,9 @@ import { requireRole } from '../middleware/auth.js'
 import { purgeArchived, purgeRejected } from '../db/moderation.js'
 import { isExpired, subscriptionView } from '@shared/subscription.js'
 import { destroyImage } from './uploads.routes.js'
+import { ownImageProblem } from '../db/images.js'
+import { isCategoryId } from '../db/seed.js'
+import { cloudinary } from '../config.js'
 
 export const productsRouter: Router = Router()
 
@@ -22,8 +25,15 @@ export const productsRouter: Router = Router()
 function listingProblems(b: Partial<Product>): Record<string, string> {
   const fields: Record<string, string> = {}
   if (!b.name?.trim()) fields.name = 'उत्पादनाचे नाव आवश्यक आहे'
-  if (!b.categoryId) fields.categoryId = 'प्रकार निवडा'
+  // Against the list, not merely non-empty: a category id nobody has heard
+  // of is stored without complaint and the listing then falls out of every
+  // category filter - there was a `pickles`, plural, in production.
+  if (!isCategoryId(b.categoryId)) fields.categoryId = 'प्रकार निवडा'
   if (!b.price || Number(b.price) <= 0) fields.price = 'किंमत टाका'
+  // Only a photo the app's own picker uploaded into this account. A URL is
+  // a URL, and this one is shown to every buyer (db/images.ts).
+  const image = ownImageProblem(b.imageUrl, cloudinary, 'product')
+  if (image) fields.imageUrl = image
   // How much one of these IS. A price without it cannot be compared with the
   // shop next door - see sizeProblems in shared/src/seller.ts.
   Object.assign(fields, sizeProblems(b))
@@ -65,7 +75,7 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
   const sellerId = req.auth!.sellerId!
   const seller = db.sellers.find((s) => s.id === sellerId)
   if (!seller) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
 
@@ -146,7 +156,7 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
     (p) => p.id === req.params.id && p.sellerId === req.auth!.sellerId,
   )
   if (i < 0) {
-    res.status(404).json({ error: 'Product not found' })
+    res.status(404).json({ error: 'Product not found', messageMr: 'हे उत्पादन सापडले नाही' })
     return
   }
 
@@ -159,6 +169,18 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
 
   const patch: Record<string, unknown> = {}
   for (const key of allowed) if (key in req.body) patch[key] = req.body[key]
+
+  // An edit is the other way a junk category or a pasted photo URL reaches
+  // a listing; both are checked here as they are on a submission.
+  if ('categoryId' in patch && !isCategoryId(patch.categoryId)) {
+    res.status(400).json({ error: 'Unknown category', messageMr: 'प्रकार निवडा', fields: { categoryId: 'प्रकार निवडा' } })
+    return
+  }
+  const image = 'imageUrl' in patch ? ownImageProblem(patch.imageUrl, cloudinary, 'product') : null
+  if (image) {
+    res.status(400).json({ error: 'Not an image of this app', messageMr: image, fields: { imageUrl: image } })
+    return
+  }
 
   /**
    * The licence number is checked on the way in HERE too, not only when a
@@ -286,7 +308,7 @@ productsRouter.delete('/:id', requireRole('seller'), (req, res) => {
     (p) => p.id === req.params.id && p.sellerId === req.auth!.sellerId,
   )
   if (i < 0) {
-    res.status(404).json({ error: 'Product not found' })
+    res.status(404).json({ error: 'Product not found', messageMr: 'हे उत्पादन सापडले नाही' })
     return
   }
 

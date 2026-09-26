@@ -75,7 +75,11 @@ export const CATEGORIES: Category[] = [
   { id: 'tailoring',  icon: '✂️', mr: 'शिवणकाम',           en: 'Tailoring',         food: false },
   { id: 'agarbatti',  icon: '🕯️', mr: 'अगरबत्ती व मेणबत्ती', en: 'Agarbatti & Candles', food: false },
   { id: 'jewellery',  icon: '📿', mr: 'दागिने',             en: 'Jewellery',         food: false },
-  { id: 'beauty',     icon: '🌿', mr: 'सौंदर्य व आरोग्य',   en: 'Beauty & Wellness', food: false },
+  // "Personal care", not "wellness": a category named for health invites
+  // the cure claims the terms forbid, on the one kind of listing that most
+  // needs to be plain - soap, oil, kajal - and Play reads the claim, not
+  // the disclaimer.
+  { id: 'beauty',     icon: '🌿', mr: 'सौंदर्य व निगा',      en: 'Beauty & Personal care', food: false },
   { id: 'decor',      icon: '🪔', mr: 'घर सजावट',           en: 'Home Decor',        food: false },
   { id: 'farm',       icon: '🌾', mr: 'शेतीपूरक उत्पादने',  en: 'Farm Produce',      food: true },
   /**
@@ -92,6 +96,16 @@ export const CATEGORIES: Category[] = [
    */
   { id: 'other',      icon: '📦', mr: 'इतर',                en: 'Other' },
 ]
+
+/**
+ * A category id the server will store. `products.routes.ts` used to require
+ * only that it be non-empty, so a wizard bug or a hand-made request could
+ * file a listing under `pickles`, plural, and it then fell out of every
+ * category filter a buyer could tap. This is the list, and nothing else.
+ */
+export function isCategoryId(id: unknown): id is string {
+  return typeof id === 'string' && CATEGORIES.some((c) => c.id === id)
+}
 
 const digital = (
   s: boolean, i: boolean, u: boolean, w: boolean, sm: boolean, dm: boolean,

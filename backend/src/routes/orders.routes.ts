@@ -44,7 +44,7 @@ ordersRouter.get('/:id', requireRole('seller', 'customer'), (req, res) => {
   const auth = req.auth!
   const order = db.orders.find((o) => o.id === req.params.id)
   if (!order) {
-    res.status(404).json({ error: 'Order not found' })
+    res.status(404).json({ error: 'Order not found', messageMr: 'हे ऑर्डर सापडले नाही' })
     return
   }
   // An order is only visible to the two parties on it.
@@ -52,7 +52,7 @@ ordersRouter.get('/:id', requireRole('seller', 'customer'), (req, res) => {
     (auth.role === 'seller' && order.sellerId === auth.sellerId) ||
     (auth.role === 'customer' && order.customerId === auth.customerId)
   if (!mine) {
-    res.status(403).json({ error: 'Not your order' })
+    res.status(403).json({ error: 'Not your order', messageMr: 'हे ऑर्डर तुमचे नाही' })
     return
   }
 
@@ -261,7 +261,7 @@ ordersRouter.post('/:id/advance', requireRole('seller'), (req, res) => {
     (o) => o.id === req.params.id && o.sellerId === req.auth!.sellerId,
   )
   if (!order) {
-    res.status(404).json({ error: 'Order not found' })
+    res.status(404).json({ error: 'Order not found', messageMr: 'हे ऑर्डर सापडले नाही' })
     return
   }
 
@@ -452,11 +452,11 @@ ordersRouter.post('/:id/confirm-payment', requireRole('seller'), (req, res) => {
     (o) => o.id === req.params.id && o.sellerId === req.auth!.sellerId,
   )
   if (!order) {
-    res.status(404).json({ error: 'Order not found' })
+    res.status(404).json({ error: 'Order not found', messageMr: 'हे ऑर्डर सापडले नाही' })
     return
   }
   if (order.paymentMode !== 'UPI') {
-    res.status(409).json({ error: 'Not a UPI order' })
+    res.status(409).json({ error: 'Not a UPI order', messageMr: 'हे UPI ऑर्डर नाही' })
     return
   }
   order.paymentStatus = 'UPI_CONFIRMED'
