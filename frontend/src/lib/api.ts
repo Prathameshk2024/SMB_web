@@ -435,6 +435,8 @@ export const api = {
   report: (body: {
     targetType: ReportTarget
     targetId: string
+    /** Reporting a buyer: the order the seller knows her from. */
+    orderId?: string
     reason: ReportReason
     note?: string
   }) => post<{ ok: true }>('/reports', body),

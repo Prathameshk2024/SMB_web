@@ -107,15 +107,12 @@ export function ReviewItem({
   review: PublicReview
   showProduct?: boolean
   /**
-   * ONE REPORT LINK PER SCREEN, AND THIS IS NOT IT ON THE BUYER'S SIDE.
-   *
-   * A buyer's words are content other buyers read, so somebody has to be able
-   * to flag them - but a link under every review, above another one for the
-   * listing itself, turned the product screen into a column of "Report" and
-   * made the word meaningless. So the buyer reports the LISTING, at the foot
-   * of the product page, and this is on for the seller only: an abusive
-   * review is aimed at her, and My Reviews is the one screen where she reads
-   * them all. Not her order screen, which shows the same words again.
+   * A buyer's words are content other buyers read, so the people reading them
+   * must be able to flag them - Google Play asks for exactly that. It is on
+   * where reviews are READ: the product page for buyers, and My Reviews for
+   * the seller an abusive review is aimed at. Not her order screen, which
+   * shows the same words again. The link is quiet so a column of reviews does
+   * not become a column of "Report".
    */
   reportable?: boolean
 }) {
