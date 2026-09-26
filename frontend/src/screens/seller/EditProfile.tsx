@@ -121,7 +121,7 @@ export default function EditProfile() {
         setErr(error.messageMr ?? error.message)
         if (error.fields) setErrors(error.fields)
       } else {
-        setErr('Network error')
+        setErr(t('err.network'))
       }
     } finally {
       setBusy(false)

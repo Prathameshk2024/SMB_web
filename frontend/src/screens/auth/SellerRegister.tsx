@@ -220,7 +220,7 @@ export default function SellerRegister() {
         setServerError(err.messageMr ?? err.message)
         if (err.fields) setErrors(err.fields)
       } else {
-        setServerError('Network error')
+        setServerError(t('err.network'))
       }
     } finally {
       setBusy(false)

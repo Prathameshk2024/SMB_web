@@ -69,7 +69,7 @@ export default function CustomerRegister() {
       toast(t('ok.registered'))
       nav('/shop', { replace: true })
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setBusy(false)
     }

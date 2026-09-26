@@ -144,7 +144,7 @@ export function Subscription() {
       toast(t('ok.paymentSubmitted'))
       nav('/seller/waiting', { replace: true })
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setBusy(false)
     }

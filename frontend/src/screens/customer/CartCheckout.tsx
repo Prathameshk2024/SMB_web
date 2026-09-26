@@ -361,7 +361,7 @@ export function Checkout() {
       setCustomerData(await api.customerMe())
       toast(t('ok.addressSaved'))
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setSavingAddress(false)
     }
@@ -408,7 +408,7 @@ export function Checkout() {
       toast(t('ok.orderPlaced'))
       nav(`/shop/placed/${res.orders[0]!.id}`, { replace: true })
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setBusy(false)
     }
@@ -687,7 +687,7 @@ export function TrackOrder() {
       setData(await api.order(order.id))
       toast(t('ok.paymentSubmitted'))
     } catch (e) {
-      setPayErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setPayErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setPaying(false)
     }
@@ -903,6 +903,8 @@ export function CustomerProfile() {
   const [closeOpen, setCloseOpen] = useState(false)
   /** Open while she is writing what went wrong. */
   const [complaining, setComplaining] = useState(false)
+  /** The address she has asked to remove, while the sheet asks her to confirm. */
+  const [removing, setRemoving] = useState<Address | null>(null)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -1036,11 +1038,7 @@ export function CustomerProfile() {
                       variant="danger"
                       size="sm"
                       disabled={busy}
-                      onClick={() => {
-                        if (confirm(t('cus.deleteAddressConfirm'))) {
-                          void run(() => api.deleteAddress(a.id))
-                        }
-                      }}
+                      onClick={() => setRemoving(a)}
                     >
                       {t('cus.deleteAddress')}
                     </Button>
@@ -1134,6 +1132,23 @@ export function CustomerProfile() {
         tone="danger"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
+
+      {/* Not the browser's confirm(): inside the APK it heads the question
+          with the site's address, which reads as a warning from somewhere
+          else. The address itself is the consequence, so it is the body. */}
+      <ConfirmSheet
+        open={!!removing}
+        title={t('cus.deleteAddressConfirm')}
+        body={removing ? `${removing.label} - ${addressLine(removing)}` : undefined}
+        confirmLabel={t('cus.deleteAddress')}
+        tone="danger"
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          const a = removing
+          setRemoving(null)
+          if (a) void run(() => api.deleteAddress(a.id))
+        }}
       />
 
       <CloseAccountSheet

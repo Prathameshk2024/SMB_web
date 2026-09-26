@@ -44,6 +44,7 @@ const mr: Record<string, string> = {
   'ok.nameSaved': 'नाव जतन झाले',
   'ok.upiCopied': 'UPI आयडी कॉपी झाला',
   'err.copyFailed': 'कॉपी होऊ शकले नाही',
+  'err.network': 'सर्व्हरशी संपर्क झाला नाही. इंटरनेट तपासा आणि पुन्हा प्रयत्न करा.',
 
   // ---- reporting something that should not be here ----------------------
   'report.link': 'तक्रार नोंदवा',
@@ -217,7 +218,6 @@ const mr: Record<string, string> = {
   'lp.collegeLede': 'हा उपक्रम खालील महाविद्यालयाच्या पुढाकाराने राबवला जात आहे.',
   'lp.collegeMr': 'जवाहर कला, विज्ञान व वाणिज्य महाविद्यालय, अणदुर, ता. तुळजापूर, जि. धाराशिव 413603',
   'lp.collegeEn': 'Jawahar Arts, Science & Commerce College, Anadur, Tal - Tuljapur, Dist - Dharashiv 413603',
-  'lp.collegeAlt': 'जवाहर कला, विज्ञान व वाणिज्य महाविद्यालय, अणदुर',
 
   // ---- landing: already signed in --------------------------------------
   'lp.switchTitle': 'विक्री विभाग',
@@ -886,6 +886,7 @@ const en: Record<string, string> = {
   'ok.nameSaved': 'Your name is saved',
   'ok.upiCopied': 'UPI ID copied.',
   'err.copyFailed': 'Could not copy',
+  'err.network': 'Could not reach the server. Check your internet and try again.',
 
   'report.link': 'Report',
   'report.title': 'Report this?',
@@ -1043,7 +1044,6 @@ const en: Record<string, string> = {
   'lp.collegeLede': 'This initiative is run under the college below.',
   'lp.collegeMr': 'जवाहर कला, विज्ञान व वाणिज्य महाविद्यालय, अणदुर, ता. तुळजापूर, जि. धाराशिव 413603',
   'lp.collegeEn': 'Jawahar Arts, Science & Commerce College, Anadur, Tal - Tuljapur, Dist - Dharashiv 413603',
-  'lp.collegeAlt': 'Jawahar Arts, Science & Commerce College, Anadur',
 
   // ---- landing: already signed in --------------------------------------
   'lp.switchTitle': 'Selling section',
