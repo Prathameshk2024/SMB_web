@@ -410,7 +410,7 @@ export const en: LegalSet = {
           {
             list: [
               'Food businesses in India must have FSSAI registration or a licence. Getting and keeping it is your responsibility. For a small home business, basic FSSAI registration is enough, and the college can help you apply.',
-              'If you have an FSSAI number, add it to your listing so buyers can see it.',
+              'If you have an FSSAI number, enter it when you register. It is kept with your shop details, where programme staff can see it.',
               'Make food cleanly and safely, and mark packets with the product name, weight or quantity, price, date made and best-before date.',
             ],
           },
