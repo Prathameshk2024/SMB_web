@@ -29,9 +29,11 @@ import {
 } from '../../components/ui.js'
 import { ProductCard } from './Browse.js'
 import {
-  IconAddressHome, IconAddressOther, IconAllClear, IconCall, IconCart, IconCash, IconChevron, IconNext, IconOrders, IconPlus, IconProduct, IconProfile, IconUpi, IconWhatsapp, StatusIcon,
+  IconAddressHome, IconAddressOther, IconAllClear, IconCall, IconCart, IconCash, IconChevron, IconEdit, IconNext, IconOrders, IconPlus, IconProduct, IconProfile, IconUpi, IconWhatsapp, StatusIcon,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
+import { ComplaintSheet } from '../../components/ComplaintSheet.js'
+import { SUPPORT_PHONE } from '../seller/Misc.js'
 
 /**
  * "ASK THE SELLER" WITH SOMETHING TO ASK WITH.
@@ -899,6 +901,8 @@ export function CustomerProfile() {
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
+  /** Open while she is writing what went wrong. */
+  const [complaining, setComplaining] = useState(false)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -1071,6 +1075,29 @@ export function CustomerProfile() {
           </p>
           <TourMenu role="customer" />
         </div>
+
+        {/* The same desk the seller's Help screen reaches. A buyer whose order
+            went wrong had nobody to tell but the seller it went wrong with. */}
+        <Card data-wt="cprof-help">
+          <SectionTitle>{t('help.contact')}</SectionTitle>
+          <div className="stack-sm">
+            <a className="btn btn--ghost" href={`https://wa.me/91${SUPPORT_PHONE}`} target="_blank" rel="noreferrer">
+              <IconWhatsapp aria-hidden="true" /> {t('help.whatsapp')}
+            </a>
+            <a className="btn btn--ghost" href={`tel:+91${SUPPORT_PHONE}`}>
+              <IconCall aria-hidden="true" /> {t('help.call')}
+            </a>
+            <Button variant="quiet" onClick={() => setComplaining(true)}>
+              <IconEdit aria-hidden="true" /> {t('help.complaint')}
+            </Button>
+          </div>
+        </Card>
+
+        <ComplaintSheet
+          open={complaining}
+          onClose={() => setComplaining(false)}
+          whatsappHref={`https://wa.me/91${SUPPORT_PHONE}`}
+        />
 
         <PoliciesTile />
 
