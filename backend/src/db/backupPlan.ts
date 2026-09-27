@@ -102,9 +102,10 @@ export function shrinkProblems(
 }
 
 /**
- * The dated local copy. Gzipped: the file is JSON, which compresses about
- * tenfold, and one is written per run, so it is the difference between
- * megabytes and gigabytes a year once the order history grows.
+ * The dated copy's name, stored or on disk. Gzipped: it is JSON, which
+ * compresses about tenfold, and one is written per run, so it is the
+ * difference between megabytes and gigabytes a year once the order history
+ * grows.
  */
 export function snapshotName(now: Date): string {
   return `firestore-${now.toISOString().slice(0, 16).replace(':', '-')}.json.gz`
@@ -112,8 +113,20 @@ export function snapshotName(now: Date): string {
 
 const SNAPSHOT = /^firestore-(\d{4})-(\d{2})-(\d{2})T\d{2}-\d{2}\.json(\.gz)?$/
 
+export function isSnapshotName(name: string): boolean {
+  return SNAPSHOT.test(name)
+}
+
 /**
- * Which local copies to delete: everything older than `keepDays`, except the
+ * Slack on the twelve months, in days. The dated copies are pruned by the
+ * nightly run, and a scheduled GitHub run can start late or skip a night;
+ * a week early means a copy one night short of its anniversary is never the
+ * one that outlives the promise.
+ */
+export const PRUNE_AHEAD_DAYS = 7
+
+/**
+ * Which dated copies to delete: everything older than `keepDays`, except the
  * earliest copy of each calendar month, which is kept for `keepMonths`.
  *
  * Every day of the last month, because damage is usually noticed within days
@@ -140,10 +153,16 @@ export function snapshotsToPrune(
   // that day, not only until the hour it happened to be taken.
   const then = new Date(now.getTime() - keepDays * 86_400_000)
   const cutoff = Date.UTC(then.getUTCFullYear(), then.getUTCMonth(), then.getUTCDate())
-  // Whole months, likewise: the copy for a month is kept until that month
-  // is more than `keepMonths` behind the current one.
+  // By the copy's own date, not by calendar month. The privacy policy says
+  // deleted information leaves the monthly copies WITHIN 12 months, so a copy
+  // goes on the day it turns `keepMonths` old. Counting whole months let the
+  // copy of 1 September live until October of the next year - 13 months for
+  // anything deleted on 2 September.
+  //
+  // And a week early (`PRUNE_AHEAD_DAYS`): a copy is only pruned when a run
+  // happens, and a run can be late.
   const monthCutoff = Number.isFinite(keepMonths)
-    ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - keepMonths, 1)
+    ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - keepMonths, now.getUTCDate() + PRUNE_AHEAD_DAYS)
     : Number.NEGATIVE_INFINITY
   const dated = names
     .map((name) => ({ name, m: SNAPSHOT.exec(name) }))
@@ -164,9 +183,91 @@ export function snapshotsToPrune(
     .filter(({ name, m }) => {
       const day = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
       if (day >= cutoff) return false
-      return !firstOfMonth.has(name) || day < monthCutoff
+      return !firstOfMonth.has(name) || day <= monthCutoff
     })
     .map(({ name }) => name)
+}
+
+/**
+ * THE DATED COPIES LIVE IN THE BACKUP PROJECT, AND PRUNE THEMSELVES.
+ *
+ * They used to be files on a laptop, pruned only when somebody ran the backup
+ * there - so the privacy policy's "within 12 months" held exactly as long as
+ * somebody remembered. The nightly GitHub run now stores each night's copy in
+ * the backup Firestore and prunes the old ones by `snapshotsToPrune`, the same
+ * rule the files followed, with nobody in the loop.
+ *
+ * A collection of its own, which is not in `COLLECTIONS`: the mirror and the
+ * restore only touch the collections they are handed, so neither ever reads,
+ * copies or empties it, and the app never loads it if the backup project is
+ * ever made the live one.
+ */
+export const SNAPSHOT_COLLECTION = 'snapshots'
+
+/**
+ * A Firestore document holds at most 1 MiB, field names included. Today's copy
+ * is about 42 KB gzipped; a copy that outgrows one document is split into
+ * parts rather than refused, because the day it outgrows it is not a day to
+ * find the backup has stopped.
+ */
+export const SNAPSHOT_PART_BYTES = 900_000
+
+export function splitSnapshot(bytes: Uint8Array, max = SNAPSHOT_PART_BYTES): Uint8Array[] {
+  const parts: Uint8Array[] = []
+  for (let i = 0; i < bytes.length; i += max) parts.push(bytes.subarray(i, i + max))
+  return parts.length ? parts : [bytes]
+}
+
+/** `firestore-2026-09-28T21-30.json.gz~0` - the copy's name, then which part. */
+export function snapshotPartId(name: string, part: number): string {
+  return `${name}~${part}`
+}
+
+export interface SnapshotPart {
+  id: string
+  snapshot: string
+  part: number
+  parts: number
+}
+
+/**
+ * Which stored documents to delete: every part of every copy `snapshotsToPrune`
+ * would delete, and every part of a copy that is not whole.
+ *
+ * A copy missing a part is a run that died halfway through writing it. It can
+ * never be restored, and it must not be the one kept as its month's copy - it
+ * would push the whole copy of the same month out.
+ */
+export function storedSnapshotsToPrune(
+  parts: SnapshotPart[],
+  now: Date,
+  keepDays: number,
+  keepMonths: number,
+): string[] {
+  const byName = new Map<string, SnapshotPart[]>()
+  for (const p of parts) byName.set(p.snapshot, [...(byName.get(p.snapshot) ?? []), p])
+
+  const whole: string[] = []
+  const broken: string[] = []
+  for (const [name, found] of byName) {
+    const expected = found[0]!.parts
+    const complete = new Set(found.map((p) => p.part)).size === expected
+      && found.every((p) => p.parts === expected && p.part >= 0 && p.part < expected)
+    ;(complete ? whole : broken).push(name)
+  }
+  const doomed = new Set([...snapshotsToPrune(whole, now, keepDays, keepMonths), ...broken])
+  return parts.filter((p) => doomed.has(p.snapshot)).map((p) => p.id)
+}
+
+/** The parts of one copy put back together, or an error naming what is missing. */
+export function joinSnapshot(parts: { part: number; parts: number; data: Uint8Array }[]): Uint8Array {
+  if (parts.length === 0) throw new Error('no such copy')
+  const expected = parts[0]!.parts
+  const sorted = [...parts].sort((a, b) => a.part - b.part)
+  if (sorted.length !== expected || sorted.some((p, i) => p.part !== i)) {
+    throw new Error(`the copy is incomplete: ${sorted.length} of ${expected} parts`)
+  }
+  return Buffer.concat(sorted.map((p) => p.data))
 }
 
 /**

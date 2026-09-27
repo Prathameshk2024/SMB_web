@@ -11,9 +11,10 @@ that recovered six sellers on 10 September 2026. So the backup is a copy into
 ```
                       nightly, GitHub Actions
    live Firestore  ─────────────────────────────►  backup Firestore
+                                                   + snapshots/ (dated copies)
    live Cloudinary ─────────────────────────────►  backup Cloudinary
 
-                      weekly, a laptop
+                      only when asked (--local), a laptop
    live Firestore  ─────────────────────────────►  firestore-<date>.json.gz
    live Cloudinary ─────────────────────────────►  images/
 ```
@@ -27,17 +28,36 @@ somebody restores from one.
 
 | Copy | Account | Updated | Holds |
 |---|---|---|---|
-| Backup Firestore **A** | `smb-backup-99778` | nightly, 03:00 IST | the latest copy only |
+| Backup Firestore **A** | `smb-backup-99778` | nightly, 03:00 IST | the latest copy, in the same collections as live |
+| Backup Firestore **A**, `snapshots` | `smb-backup-99778` | nightly, 03:00 IST | one dated copy per night: the last 30 days, then the first of each month until a week before it turns 12 months old |
 | Backup Cloudinary **A** | `e4bdb893` | nightly, 03:00 IST | the photos the live account has; one it has destroyed goes on the next run |
-| Local database files | `backend/data/backups/` on a laptop | whenever it is run | one file per run: the last 30 days, then the first of each month for 12 months |
-| Local photos | `backend/data/backups/images/` | whenever it is run | the photos the live account has; one it has destroyed goes on the next run |
+| Local database files and photos | `backend/data/backups/` on a laptop | only with `--local` | the same rules, applied only when `--local` runs again on that laptop |
 
 **How long deleted data survives in a backup, in one sentence for the privacy
 policy:** a person's data is gone from the nightly mirror and the backup
-photos on the night after it is deleted live, and from the dated database
-files within 12 months (`BACKUP_KEEP_DAYS` and `BACKUP_KEEP_MONTHS` are the
-two numbers). The laptop copies are only as current as the last time somebody
-ran the weekly backup.
+photos on the night after it is deleted live, and from the dated copies
+within 12 months (`BACKUP_KEEP_DAYS` and `BACKUP_KEEP_MONTHS` are the two
+numbers; the months can be shortened, never lengthened).
+
+**Nobody has to do anything to keep that promise**, with one exception:
+the Backup workflow has to stay enabled, because it is also what prunes.
+GitHub disables a scheduled workflow in a public repository after 60 days
+without a commit, and emails a warning first — re-enable it from the Actions
+tab. A monthly copy goes a week before its anniversary rather than on it, so
+a late or skipped night never carries one past twelve months.
+
+The dated copies used to be files on a laptop, pruned only when somebody ran
+the backup there — so the promise held only as long as somebody remembered.
+A `--local` copy still works that way, which is why it is off by default:
+**make one for a restore drill or before risky work, and delete it
+afterwards.** It is the only copy that survives losing every account, which
+is worth having in hand on the day it is needed and not worth keeping for a
+year nobody is watching.
+
+Each stored copy is one document of gzipped JSON — about 42 KB today — split
+into parts once it outgrows Firestore's 1 MiB document limit. The mirror and
+a restore only touch the collections the app uses, so neither ever reads,
+copies or empties `snapshots`, and the app never loads it.
 
 Backup A was set up on 24 September 2026. **The logins for the backup
 accounts must be known to more than one person** — a backup nobody can sign in
@@ -101,10 +121,11 @@ It uses these repository secrets (Settings → Secrets and variables → Actions
 | `BACKUP_A_FIREBASE_SERVICE_ACCOUNT` | the backup project's key, the whole JSON |
 | `BACKUP_A_CLOUDINARY_URL` | the backup account's `cloudinary://key:secret@cloud` |
 
-It runs with `--no-local-images` and uploads nothing: the runner is wiped
+It keeps nothing on the runner and uploads no artifact: the runner is wiped
 after each run, downloading every photo each night would spend the **live**
 Cloudinary's monthly allowance, and in a public repository an artifact can be
-downloaded by anyone signed in to GitHub.
+downloaded by anyone signed in to GitHub. The dated copy goes into the backup
+project instead, which only the backup key can read.
 
 Things to know:
 
@@ -119,22 +140,27 @@ Things to know:
 - **The backup keys never go on Cloud Run.** They can write to the backups; a
   compromised server holding them could damage both copies.
 
-### Weekly — a laptop
+### When you want one in hand — a laptop
 
 ```bash
-npm run backup -- --dry-run     # what it would do
-npm run backup -- --to a        # the real thing, into backup A
+npm run backup -- --dry-run            # what it would do
+npm run backup -- --to a               # the nightly run, by hand
+npm run backup -- --to a --local       # ...and a copy on this laptop too
 ```
 
 The live keys come from `backend/.env`; add the `BACKUP_*` lines from
-`backend/.env.example` for the targets. This is the run that builds up the
-dated database files and the photos on disk — the only copy that does not
-depend on any account staying open. `backend/data/backups/` is gitignored: it
-holds phone numbers, addresses and admin password hashes.
+`backend/.env.example` for the targets. `--local` writes the dated database
+file and downloads the photos to `backend/data/backups/` — the only copy that
+does not depend on any account staying open. It is gitignored, and it holds
+phone numbers, addresses and admin password hashes: **delete it when the job
+it was made for is done**, because nothing prunes it until `--local` runs
+there again.
 
-Space, measured on 23 September 2026: **42 KB** per database file (948
-documents, gzipped) and **6.8 MB** of photos (94). Pruning keeps it small;
-`BACKUP_KEEP_DAYS` changes the 30 and `BACKUP_KEEP_MONTHS` the 12.
+Space, measured on 23 September 2026: **42 KB** per database copy (948
+documents, gzipped) and **6.8 MB** of photos (94). `BACKUP_KEEP_DAYS` changes
+the 30 and `BACKUP_KEEP_MONTHS` the 12. `BACKUP_KEEP_MONTHS` cannot go past 12:
+the privacy policy (`frontend/src/legal/en.ts`, `mr.ts`) and the delete page
+promise 12, so change them first and then the ceiling in `scripts/backup.ts`.
 
 ### Adding a second target
 
@@ -150,7 +176,8 @@ as secrets and as two lines in the workflow's `env:`, and set
 **Before anything else, disable the Backup workflow** (Actions → Backup → ⋯ →
 Disable workflow). Otherwise the next nightly run copies the damaged live data
 over the good backup. The shrink check stops a wipe, not a subtler corruption.
-Re-enable it only once the live project is right again.
+Re-enable it once the live project is right again — and do not leave it off
+for long: while it is off, nothing prunes the dated copies either.
 
 Then **restore with a dry run first**, every time.
 
@@ -163,13 +190,16 @@ the target. From a laptop, at the repository root:
 FIREBASE_SERVICE_ACCOUNT="$(cat backup-a-key.json)" \
 BACKUP_TARGETS=live \
 BACKUP_LIVE_FIREBASE_SERVICE_ACCOUNT="$(cat live-key.json)" \
-npm run backup -- --to live --no-local-images --dry-run
+npm run backup -- --to live --no-copies --dry-run
 ```
 
 Read what it would write and remove, then run it again without `--dry-run`.
 Variables set on the command line take precedence over `backend/.env`, so
 that file can stay as it is. Keep both key files outside the repository, and
-delete them afterwards.
+delete them afterwards. `--no-copies` stops the run storing a dated copy of
+everybody inside the live project; a target named `live` never gets one
+either way. To restore a night older than the latest, use
+`--snapshot <name>` (below) instead.
 
 - It makes the live project **match the backup** — including removing
   anything created since the backup was taken. Orders placed between the last
@@ -197,7 +227,7 @@ CLOUDINARY_URL="cloudinary://<backup key>:<backup secret>@e4bdb893" \
 CLOUDINARY_FOLDER=shanta-mahila-bazar \
 BACKUP_TARGETS=live \
 BACKUP_LIVE_CLOUDINARY_URL="cloudinary://<live key>:<live secret>@<live cloud>" \
-npm run backup -- --to live --no-local-images --dry-run
+npm run backup -- --to live --no-copies --dry-run
 ```
 
 It uploads every photo the live account is missing under its original
@@ -210,13 +240,31 @@ This works only while the live Cloudinary account (its cloud name) still
 exists. If it is gone, every stored URL points at a dead account — see
 *Not built: moving the photos to a new Cloudinary account* below.
 
+### From a dated copy in the backup project
+
+The route when the day wanted is older than last night — damage noticed a
+week late. `npm run restore` reads the copies from the backup project named
+by `BACKUP_<X>_FIREBASE_SERVICE_ACCOUNT` (add `--from a` if there is more than
+one) and restores into whatever `FIREBASE_SERVICE_ACCOUNT` points at, exactly
+as it restores a local file (below). **It reports and writes nothing unless
+`--commit` is passed.**
+
+```bash
+npm run restore -- --snapshot list
+npm run restore -- --snapshot firestore-2026-09-20T21-30.json.gz
+npm run restore -- --snapshot firestore-2026-09-20T21-30.json.gz --commit
+```
+
+A copy listed as `INCOMPLETE` is one a run died writing; it cannot be
+restored, and the next nightly run removes it.
+
 ### From the local files
 
-`npm run restore` (`backend/scripts/restore.ts`) puts the laptop's copies back
-— the route when the backup accounts are lost too, or when the day wanted is
-older than last night. It restores into whatever `backend/.env` points at:
-`FIREBASE_SERVICE_ACCOUNT` for the database, `CLOUDINARY_*` for the photos.
-**It reports and writes nothing unless `--commit` is passed.**
+`npm run restore` (`backend/scripts/restore.ts`) puts a `--local` run's
+copies back — the route when the backup accounts are lost too. It restores
+into whatever `backend/.env` points at: `FIREBASE_SERVICE_ACCOUNT` for the
+database, `CLOUDINARY_*` for the photos. **It reports and writes nothing
+unless `--commit` is passed.**
 
 ```bash
 # the database, from a dated copy
@@ -315,10 +363,13 @@ CLOUDINARY_URL="cloudinary://<backup key>:<backup secret>@e4bdb893" \
 npm run restore -- --file backend/data/backups/<file>.json.gz --images
 ```
 
-The dry run should name `smb-backup-99778` and `e4bdb893`, never the live
-ones — if it names the live project, stop. Then add `--commit`, point a local
-API at backup A (`npm run dev:api` with that key) and look around. That is
-also the test of the photo URLs.
+The file comes from a `--local` run made for the drill; restoring a stored
+copy (`--snapshot <name>`) into backup A works the same way and needs no
+file. The dry run should name `smb-backup-99778` and `e4bdb893`, never the
+live ones — if it names the live project, stop. Then add `--commit`, point a
+local API at backup A (`npm run dev:api` with that key) and look around. That
+is also the test of the photo URLs. **Delete the local files when you are
+done.**
 
 ---
 
@@ -327,6 +378,7 @@ also the test of the photo URLs.
 | The log says | Meaning |
 |---|---|
 | `FIREBASE_SERVICE_ACCOUNT is not valid JSON or base64 JSON` and `target "a" has a Firebase key, but the live Firebase is not configured` | The `LIVE_FIREBASE_SERVICE_ACCOUNT` secret was pasted with something extra — the `FIREBASE_SERVICE_ACCOUNT=` prefix, or quotes. Copy the exact value with `node --env-file=backend/.env -e "process.stdout.write(process.env.FIREBASE_SERVICE_ACCOUNT)" \| clip` and update the secret. |
+| `copies → <project>: …` | Storing or pruning the dated copies failed; the mirror still ran. Read the Firestore error — usually the backup project's daily write limit, or a missing Firestore database. Until a run succeeds, nothing is being pruned. |
 | `cloudinary not configured` | One of the three `LIVE_CLOUDINARY_*` secrets is missing or misspelled. |
 | `the live project has shrunk since this backup was taken` | A collection lost more than half its documents. **Find out why before doing anything else** — this is what 10 September looked like. If the shrink was deliberate (a purge), run once with `ALLOW_BULK_DELETE=true`. |
 | `is the LIVE Firebase project - refusing` / `is the LIVE Cloudinary account - refusing` | A backup secret holds the live key. |

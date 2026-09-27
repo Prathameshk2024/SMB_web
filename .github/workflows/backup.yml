@@ -23,7 +23,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run backup -- --no-local-images ${{ inputs.dry_run && '--dry-run' || '' }}
+      # Also stores tonight's dated copy in the backup project and prunes the
+      # old ones, which is what keeps the privacy policy's twelve months.
+      - run: npm run backup -- ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.LIVE_FIREBASE_SERVICE_ACCOUNT }}
           CLOUDINARY_CLOUD_NAME: ${{ secrets.LIVE_CLOUDINARY_CLOUD_NAME }}

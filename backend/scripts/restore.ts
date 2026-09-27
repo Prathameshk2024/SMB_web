@@ -1,10 +1,16 @@
 /**
- * RESTORE FROM THE LOCAL BACKUP FILES
- * ===================================
- * The other half of `npm run backup`. It puts back what a laptop run saved in
- * backend/data/backups/ - the copy that survives losing the backup accounts
- * as well as the live ones:
+ * RESTORE FROM A DATED COPY
+ * =========================
+ * The other half of `npm run backup`. It puts back a dated copy - one the
+ * nightly run stored in a backup project, or one a `--local` run saved in
+ * backend/data/backups/:
  *
+ *   --snapshot list          the copies stored in a backup project, oldest
+ *                            first. Reads the project from BACKUP_<X>_FIREBASE_
+ *                            SERVICE_ACCOUNT; `--from <x>` picks the target
+ *                            when there is more than one.
+ *   --snapshot <name>        one of those copies, restored exactly as --file
+ *                            would restore it.
  *   --file <path>    a database copy (firestore-<date>.json.gz, or unpacked
  *                    .json) into the Firestore that FIREBASE_SERVICE_ACCOUNT
  *                    names. The project is made to MATCH the file: documents
@@ -25,6 +31,8 @@
  *
  * Reports and changes nothing unless `--commit` is passed.
  *
+ *   npm run restore -- --snapshot list
+ *   npm run restore -- --snapshot firestore-2026-09-23T21-30.json.gz
  *   npm run restore -- --file backend/data/backups/firestore-2026-09-23T17-41.json.gz
  *   npm run restore -- --images
  *   npm run restore -- --file <path> --images --commit
@@ -43,10 +51,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
+import { cert, deleteApp, initializeApp, type App } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
 import { ALLOW_BULK_DELETE, cloudinary, firebase } from '../src/config.js'
 import { getFirestoreDb } from '../src/db/firestore.js'
-import { imagePublicIds, parseSnapshot, shrinkProblems } from '../src/db/backupPlan.js'
-import { applyMirror, countsOf, listAssets, readCollections, uploadAsset, type Collections } from '../src/db/backupIo.js'
+import { imagePublicIds, isSnapshotName, parseSnapshot, readTargets, shrinkProblems } from '../src/db/backupPlan.js'
+import {
+  applyMirror, countsOf, fetchSnapshot, listAssets, listSnapshotParts, readCollections, uploadAsset, type Collections,
+} from '../src/db/backupIo.js'
 
 const args = process.argv.slice(2)
 const commit = args.includes('--commit')
@@ -67,6 +79,8 @@ const imagesArg = valueAfter('--images')
 const images = args.includes('--images')
   ? imagesArg ? path.resolve(typedFrom, imagesArg) : path.join(here, '../data/backups/images')
   : undefined
+const snapshotArg = args.includes('--snapshot') ? valueAfter('--snapshot') ?? 'list' : undefined
+const fromArg = valueAfter('--from')
 
 let failed = false
 function fail(message: string): void {
@@ -74,16 +88,11 @@ function fail(message: string): void {
   failed = true
 }
 
-async function restoreDatabase(filePath: string): Promise<void> {
-  if (!firebase) {
-    fail('no Firestore to restore into - set FIREBASE_SERVICE_ACCOUNT to the project to restore')
-    return
-  }
+async function restoreFile(filePath: string): Promise<void> {
   if (!fs.existsSync(filePath)) {
     fail(`${filePath}: no such file`)
     return
   }
-
   let json: unknown
   try {
     const bytes = fs.readFileSync(filePath)
@@ -93,16 +102,82 @@ async function restoreDatabase(filePath: string): Promise<void> {
     fail(`${filePath}: could not be read as a database copy - ${(err as Error).message}`)
     return
   }
+  await restoreDatabase(path.basename(filePath), json)
+}
+
+/**
+ * A copy the nightly run stored in a backup project. The backup key comes
+ * from the same BACKUP_<X>_* variables the backup run reads, so the one
+ * project this ever reads copies from is one already configured as a backup.
+ */
+async function restoreStored(which: string): Promise<void> {
+  const folder = process.env.CLOUDINARY_FOLDER?.trim() || 'shanta-mahila-bazar'
+  const { targets, problems } = readTargets(process.env, folder)
+  for (const p of problems) fail(p)
+  const withFirestore = targets.filter((t) => t.firestore)
+  const target = fromArg ? withFirestore.find((t) => t.name === fromArg) : withFirestore.length === 1 ? withFirestore[0] : undefined
+  if (!target) {
+    fail(fromArg
+      ? `--from ${fromArg}: no backup target of that name with a Firebase key in BACKUP_TARGETS`
+      : withFirestore.length === 0
+        ? 'no backup project configured - set BACKUP_TARGETS and BACKUP_<X>_FIREBASE_SERVICE_ACCOUNT'
+        : `more than one backup project - say which with --from ${withFirestore.map((t) => t.name).join('|')}`)
+    return
+  }
+  if (which !== 'list' && !isSnapshotName(which)) {
+    fail(`--snapshot ${which}: not a copy's name - run --snapshot list to see them`)
+    return
+  }
+
+  const config = target.firestore!
+  let app: App | null = null
+  try {
+    app = initializeApp({ credential: cert(config), projectId: config.projectId }, `restore-from-${target.name}`)
+    const db = config.databaseId ? getFirestore(app, config.databaseId) : getFirestore(app)
+
+    if (which === 'list') {
+      const parts = await listSnapshotParts(db)
+      const names = [...new Set(parts.map((p) => p.snapshot))].sort()
+      console.log(`  copies stored in ${config.projectId}: ${names.length}`)
+      for (const name of names) {
+        const found = parts.filter((p) => p.snapshot === name)
+        const whole = found.length === found[0]!.parts
+        console.log(`           ${name}${whole ? '' : `   INCOMPLETE (${found.length} of ${found[0]!.parts} parts)`}`)
+      }
+      return
+    }
+
+    const gz = await fetchSnapshot(db, which)
+    let json: unknown
+    try {
+      json = JSON.parse(gunzipSync(gz).toString('utf8'))
+    } catch (err) {
+      fail(`${which}: could not be read as a database copy - ${(err as Error).message}`)
+      return
+    }
+    await restoreDatabase(`${which} (from ${config.projectId})`, json)
+  } catch (err) {
+    fail(`${which} from ${config.projectId}: ${(err as Error).message}`)
+  } finally {
+    if (app) await deleteApp(app)
+  }
+}
+
+async function restoreDatabase(label: string, json: unknown): Promise<void> {
+  if (!firebase) {
+    fail('no Firestore to restore into - set FIREBASE_SERVICE_ACCOUNT to the project to restore')
+    return
+  }
 
   const { collections, problems } = parseSnapshot(json)
-  for (const p of problems) fail(`${path.basename(filePath)}: ${p}`)
+  for (const p of problems) fail(`${label}: ${p}`)
   if (problems.length > 0) return
 
   const source: Collections = Object.fromEntries(collections)
   const db = getFirestoreDb()
   const current = await readCollections(db, Object.keys(source))
 
-  console.log(`  database ${path.basename(filePath)} → ${firebase.projectId}`)
+  console.log(`  database ${label} → ${firebase.projectId}`)
   for (const name of Object.keys(source)) {
     console.log(`           ${name.padEnd(12)} file ${String(source[name]!.size).padStart(5)}   now ${String(current[name]!.size).padStart(5)}`)
   }
@@ -164,9 +239,23 @@ async function restoreImages(dir: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (!file && !images) {
+  if (file && snapshotArg) {
     console.log('')
-    console.log('  Nothing to restore. Pass --file <database copy>, --images [folder], or both.')
+    console.log('  Pass --file or --snapshot, not both: a database is restored from one copy.')
+    console.log('')
+    process.exitCode = 1
+    return
+  }
+  if (snapshotArg === 'list') {
+    console.log('')
+    await restoreStored('list')
+    console.log('')
+    if (failed) process.exitCode = 1
+    return
+  }
+  if (!file && !snapshotArg && !images) {
+    console.log('')
+    console.log('  Nothing to restore. Pass --snapshot list|<name>, --file <database copy>, --images [folder], or a copy and --images.')
     console.log('  See the top of backend/scripts/restore.ts, and docs/BACKUP.md §4.')
     console.log('')
     process.exitCode = 1
@@ -178,7 +267,8 @@ async function main(): Promise<void> {
   console.log('')
 
   try {
-    if (file) await restoreDatabase(file)
+    if (file) await restoreFile(file)
+    if (snapshotArg) await restoreStored(snapshotArg)
   } catch (err) {
     fail(`database: ${(err as Error).message}`)
   }
@@ -193,7 +283,7 @@ async function main(): Promise<void> {
     console.log('  FINISHED WITH FAILURES - see above.')
   } else if (commit) {
     console.log('  RESTORED.')
-    if (file) {
+    if (file || snapshotArg) {
       console.log('  Restart the API now, so it reads the restored data instead of writing its old copy back:')
       console.log('    gcloud run services update shantai-api --region asia-south1 --update-env-vars RESTORED_AT=' +
         new Date().toISOString().slice(0, 16).replace(':', '-'))

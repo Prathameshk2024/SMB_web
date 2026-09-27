@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (441) + frontend (144) + admin (37) tests
+npm test               # backend (446) + frontend (144) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -36,7 +36,8 @@ npm run admin:users -- hash          # a password hash for ADMIN_BOOTSTRAP_PASSW
 npm run backfill:customers -- --help
 npm run purge:demo -- --help
 npm run scrub:auth-ips           # hash raw IPs left in old auth events; --commit to write
-npm run backup -- --dry-run      # live Firestore + photos to the backup accounts (BACKUP_* in backend/.env.example)
+npm run backup -- --dry-run      # live Firestore + photos to the backup accounts, dated copies kept there (BACKUP_* in backend/.env.example)
+npm run restore -- --snapshot list   # the dated copies stored in the backup project; --snapshot <name> restores one
 ```
 
 Run a single test file — `node:test` via tsx, no framework:
@@ -656,7 +657,7 @@ Both landing photo strips are one component, `PhotoRotator`, cross-fading every 
 
 One Cloud Run service (`shantai-api`, `asia-south1` — the API) and two Vercel projects from this same repo, distinguished only by Root Directory (`frontend` and `admin`), plus an Android APK that is not built from this repo at all (below). `VITE_API_URL` is read at **build** time, so changing it means redeploying.
 
-**The app is the `prathamesh2` branch, and both Vercel projects must track it by name.** `main` holds only the initial commit and `prathamesh` — GitHub's default branch — is an older copy from 8 September with no `admin/` and a lockfile missing rollup's Linux binary, so every default Vercel reaches for builds the wrong code or fails outright. The two branches share nothing after the initial commit; do not merge `prathamesh` in.
+**The app is the `prathamesh2` branch, and both Vercel projects must track it by name.** `main` holds only the initial commit and `prathamesh` is an older copy from 8 September with no `admin/` and a lockfile missing rollup's Linux binary, so a Vercel project left on either builds the wrong code or fails outright. The branches share nothing after the initial commit; do not merge `prathamesh` in. `prathamesh2` is also GitHub's default branch, which matters beyond Vercel: scheduled workflows run from the default branch, so the nightly backup (`docs/BACKUP.md`) runs whatever is on `prathamesh2`.
 
 The service needs two settings that are not Cloud Run's defaults, and neither is visible from the outside:
 
