@@ -393,7 +393,7 @@ export function ProductDetail() {
             <SectionTitle>{t('rev.title')}</SectionTitle>
             <div className="stack-sm">
               <RatingSummaryCard summary={feedback.summary} />
-              {feedback.reviews.length > 0 && <ReviewList reviews={feedback.reviews} />}
+              {feedback.reviews.length > 0 && <ReviewList reviews={feedback.reviews} reportable />}
             </div>
           </div>
         )}
@@ -535,7 +535,10 @@ export function SellerShop() {
  */
 function SellerCard({ seller }: { seller: Partial<Seller> }) {
   const t = useT()
+  /** Open while she is saying what is wrong with this shop. */
+  const [reporting, setReporting] = useState(false)
   return (
+    <>
     <div className="tile">
       <Avatar name={seller.name} size={62} />
       <div className="tile__body">
@@ -548,7 +551,24 @@ function SellerCard({ seller }: { seller: Partial<Seller> }) {
         </div>
         <div className="tile__meta">{seller.village}</div>
         <div className="tiny num dim">{seller.womenBizId}</div>
+        {/* The shop, not one listing: a shop that took the money and sent
+            nothing, or whose photos are all someone else's, is a complaint
+            about her and not about any one jar. On the card, so it is on the
+            product page and the shop page alike. */}
+        {seller.id && (
+          <ReportLink labelKey="report.shopLink" onClick={() => setReporting(true)} />
+        )}
       </div>
     </div>
+    {seller.id && (
+      <ReportSheet
+        targetType="seller"
+        targetId={seller.id}
+        title={seller.shopName}
+        open={reporting}
+        onClose={() => setReporting(false)}
+      />
+    )}
+    </>
   )
 }

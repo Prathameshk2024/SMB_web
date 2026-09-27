@@ -28,9 +28,16 @@ somebody restores from one.
 | Copy | Account | Updated | Holds |
 |---|---|---|---|
 | Backup Firestore **A** | `smb-backup-99778` | nightly, 03:00 IST | the latest copy only |
-| Backup Cloudinary **A** | `e4bdb893` | nightly, 03:00 IST | every photo ever copied |
-| Local database files | `backend/data/backups/` on a laptop | whenever it is run | one file per run: the last 30 days, then the first of each month for good |
-| Local photos | `backend/data/backups/images/` | whenever it is run | every photo ever downloaded |
+| Backup Cloudinary **A** | `e4bdb893` | nightly, 03:00 IST | the photos the live account has; one it has destroyed goes on the next run |
+| Local database files | `backend/data/backups/` on a laptop | whenever it is run | one file per run: the last 30 days, then the first of each month for 12 months |
+| Local photos | `backend/data/backups/images/` | whenever it is run | the photos the live account has; one it has destroyed goes on the next run |
+
+**How long deleted data survives in a backup, in one sentence for the privacy
+policy:** a person's data is gone from the nightly mirror and the backup
+photos on the night after it is deleted live, and from the dated database
+files within 12 months (`BACKUP_KEEP_DAYS` and `BACKUP_KEEP_MONTHS` are the
+two numbers). The laptop copies are only as current as the last time somebody
+ran the weekly backup.
 
 Backup A was set up on 24 September 2026. **The logins for the backup
 accounts must be known to more than one person** — a backup nobody can sign in
@@ -62,8 +69,12 @@ What is **not**:
   comes back empty, nothing is written, the backup keeps the older data, and
   the run fails. This is the same line `isBulkDelete()` draws in the API. The
   override is `ALLOW_BULK_DELETE=true`, for a shrink that is deliberate.
-- **Photos are never deleted** from either copy — the payment screenshots are
-  the proof behind every approved ₹50.
+- **Photos follow the live account, deletions included.** They used to be
+  kept for ever, as the proof behind every approved ₹50 — but a seller who
+  deletes her account has her screenshots and product photos destroyed live,
+  and a backup that kept them was keeping what she had been told was gone.
+  The same shrink check applies: if more than half a copy's photos would go,
+  or the live account lists none, nothing is removed and the run fails.
 - **The script refuses to use the live project or the live Cloudinary account
   as a backup target.**
 - **With two or more targets, each run copies into one**, rotating by day, so
@@ -123,7 +134,7 @@ holds phone numbers, addresses and admin password hashes.
 
 Space, measured on 23 September 2026: **42 KB** per database file (948
 documents, gzipped) and **6.8 MB** of photos (94). Pruning keeps it small;
-`BACKUP_KEEP_DAYS` changes the 30.
+`BACKUP_KEEP_DAYS` changes the 30 and `BACKUP_KEEP_MONTHS` the 12.
 
 ### Adding a second target
 

@@ -587,8 +587,19 @@ export interface Customer {
   addresses: Address[]
   createdAt: string
   updatedAt: string
-  /** Reserved for admin moderation (Phase 3). Nothing reads it yet. */
+  /**
+   * BLOCKED BY AN ADMIN, keyed on the phone.
+   *
+   * Closing an account is not a ban - her row is rebuilt from her number the
+   * moment she signs in again. This is the ban: the row stays, with these
+   * stamps on it, and `/auth/otp/verify` and `POST /orders` both refuse the
+   * number. `blockReason` is the desk's record, never shown to her; the
+   * refusal she reads says only to contact the office.
+   */
   blocked?: boolean
+  blockedAt?: string
+  blockReason?: string
+  blockedBy?: string
   /** Which version of the policies she accepted, and when. See Seller. */
   acceptedPolicies?: PolicyAcceptance
 }
@@ -717,6 +728,12 @@ export interface Report {
    */
   byUserId: string
   byRole: 'customer' | 'seller'
+  /**
+   * The order a seller reported a buyer from. A seller only ever meets a
+   * buyer through an order, so the report names it: "which order?" is the
+   * first thing the desk asks before ringing anybody.
+   */
+  orderId?: string
   at: string
   /** Closed by an admin who looked and left the listing up. */
   reviewedAt?: string

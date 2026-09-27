@@ -323,6 +323,15 @@ export function OtpScreen() {
         return
       }
 
+      // A number blocked for misuse passed the OTP and was refused after it.
+      // Telling her the code was wrong would send her round the keypad for
+      // ever; this says what happened and who to ask, in the screen's own
+      // language rather than the server's Marathi.
+      if (e instanceof ApiError && e.status === 403 && e.message === 'Blocked') {
+        setErr(t('err.blocked'))
+        return
+      }
+
       const generic = import.meta.env.DEV ? `${t('onb.otpWrong')} — ${String(e)}` : t('onb.otpWrong')
       setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : generic)
     } finally {

@@ -7,7 +7,12 @@
  * find them. Every document quotes these rather than retyping them, so a new
  * officer is one edit here and not five documents that disagree.
  *
- * The phone number is the same desk as SUPPORT_PHONE in screens/seller/Misc.tsx.
+ * TWO CONTACTS, ON PURPOSE. The college office is where everyday help goes -
+ * the Help cards' call and WhatsApp buttons, and an account deletion by
+ * somebody who cannot sign in. The grievance officer is the named person the
+ * law asks for, for complaints the office has not settled and for questions
+ * about personal data. SUPPORT_PHONE in screens/seller/Misc.tsx is the
+ * office's number, and a test keeps the two equal.
  */
 
 export const OPERATOR = {
@@ -24,6 +29,12 @@ export const GRIEVANCE_OFFICER = {
   roleMr: 'सहायक प्राध्यापक, प्राणिशास्त्र विभाग, जवाहर कला, विज्ञान व वाणिज्य महाविद्यालय, अणदुर',
   phone: '7057899018',
   email: 'jyotihattarge@gmail.com',
+} as const
+
+/** The college office: everyday help, and deletion for someone who cannot sign in. */
+export const COLLEGE_OFFICE = {
+  phone: '9420488874',
+  email: 'principal.jassca@gmail.com',
 } as const
 
 /** Where a dispute is heard. */

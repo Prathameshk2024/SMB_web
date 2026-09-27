@@ -17,6 +17,9 @@ import { destroyImage } from './uploads.routes.js'
 import { adminCloseCustomer, adminCloseSeller, restoreSeller } from '../db/accountClose.js'
 import { recordAuthEvent } from '../auth/events.js'
 import { hashIp, maskPhone } from '../auth/crypto.js'
+import { closeReports, openReportsFor, reportedBuyers, reportsBySeller } from '../db/reports.js'
+import { blockCustomer } from '../db/customers.js'
+import { revokeAllForUser } from '../auth/sessions.js'
 
 /**
  * ADMIN API - BACKEND ONLY.
@@ -367,16 +370,7 @@ adminRouter.get('/products', (req, res) => {
  */
 adminRouter.post('/products/:id/clear-reports', (req, res) => {
   const db = getDb()
-  const now = new Date().toISOString()
-  const by = verifierName(db, req)
-  let closed = 0
-  for (const r of db.reports) {
-    if (r.targetId === req.params.id && !r.reviewedAt) {
-      r.reviewedAt = now
-      r.reviewedBy = by
-      closed++
-    }
-  }
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
   if (closed) save()
   res.json({ ok: true, closed })
 })
@@ -562,16 +556,7 @@ adminRouter.get('/reviews', (req, res) => {
  */
 adminRouter.post('/reviews/:id/clear-reports', (req, res) => {
   const db = getDb()
-  const now = new Date().toISOString()
-  const by = verifierName(db, req)
-  let closed = 0
-  for (const r of db.reports) {
-    if (r.targetId === req.params.id && !r.reviewedAt) {
-      r.reviewedAt = now
-      r.reviewedBy = by
-      closed++
-    }
-  }
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
   if (closed) save()
   res.json({ ok: true, closed })
 })
@@ -621,6 +606,10 @@ adminRouter.get('/sellers', (_req, res) => {
   for (const o of db.orders) {
     if (o.status === 'DELIVERED') earned.set(o.sellerId, (earned.get(o.sellerId) ?? 0) + o.total)
   }
+  // Buyers' open reports about the SHOP, not about her listings: those sit
+  // on the Products screen. A report changes nothing about her on its own -
+  // it is a queue for an admin to look at, drawn on her row.
+  const reports = reportsBySeller(db)
   res.json({
     sellers: db.sellers.map((s) => {
       const products = db.products.filter(
@@ -633,9 +622,19 @@ adminRouter.get('/sellers', (_req, res) => {
         earned: earned.get(s.id) ?? 0,
         // On the server's clock, like every other answer about the date.
         subscription: subscriptionView(s),
+        reports: reports.get(s.id) ?? [],
       }
     }),
+    reportedCount: reports.size,
   })
+})
+
+/** Looked at, and the shop stays. Same decision as closing a listing's reports. */
+adminRouter.post('/sellers/:id/clear-reports', (req, res) => {
+  const db = getDb()
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
+  if (closed) save()
+  res.json({ ok: true, closed })
 })
 
 /**
@@ -673,6 +672,7 @@ adminRouter.get('/sellers/:id', (req, res) => {
       slots: slotInfo(seller, products),
       productCount: products.length,
       subscription: subscriptionView(seller),
+      reports: openReportsFor(db, seller.id, 'seller'),
     },
     products,
     orders,
@@ -772,6 +772,58 @@ adminRouter.post('/sellers/:id/restore', (req, res) => {
   restoreSeller(seller)
   save()
   res.json({ seller })
+})
+
+/* ------------------------------------------------------------------ */
+/* Buyers                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Buyers that sellers have reported, grouped by buyer, newest first. A buyer
+ * has no page in the console, so this list IS her page: the reports, the
+ * order each came from, her number to ring, and whether she is blocked.
+ */
+adminRouter.get('/customers/reported', (_req, res) => {
+  const buyers = reportedBuyers(getDb())
+  res.json({ buyers, reportedCount: buyers.length })
+})
+
+adminRouter.post('/customers/:id/clear-reports', (req, res) => {
+  const db = getDb()
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
+  if (closed) save()
+  res.json({ ok: true, closed })
+})
+
+/**
+ * BLOCK A BUYER, keyed on her phone number.
+ *
+ * Closing an account is not a ban - see `blockCustomer`. This is. `blocked:
+ * false` lifts it. The reason is required and kept for the desk; she reads
+ * only that the number is blocked. Logged like a close, with the staff
+ * member's name, because refusing somebody a market is a decision somebody
+ * has to be able to stand behind later.
+ */
+adminRouter.post('/customers/block', (req, res) => {
+  const db = getDb()
+  const by = verifierName(db, req)
+  const phone = String(req.body?.phone ?? '')
+  const result = blockCustomer(
+    db, phone, req.body ?? {}, by,
+    (d, userId, now) => revokeAllForUser(d, userId, 'admin', now),
+  )
+  if (!result.ok) {
+    const { status, ...body } = result
+    res.status(status).json(body)
+    return
+  }
+  recordAuthEvent(db, {
+    type: 'session.revoked', subject: maskPhone(phone), role: 'customer',
+    ip: hashIp(callerIp(req)),
+    detail: `${result.customer.blocked ? 'customer.block' : 'customer.unblock'} by ${by}`,
+  })
+  save()
+  res.json({ customer: result.customer })
 })
 
 adminRouter.post('/customers/close', (req, res) => {

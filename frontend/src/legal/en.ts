@@ -3,7 +3,7 @@ import { RENEW_REMINDER_DAYS } from '@shared/subscription.js'
 import { REVIEW_WINDOW_DAYS } from '@shared/review.js'
 import { UNDO_DAYS } from '@shared/accountClose.js'
 import {
-  COURTS, FEE_REFUND_WORKING_DAYS, GRIEVANCE_ACK_HOURS, GRIEVANCE_OFFICER,
+  COLLEGE_OFFICE, COURTS, FEE_REFUND_WORKING_DAYS, GRIEVANCE_ACK_HOURS, GRIEVANCE_OFFICER,
   GRIEVANCE_RESOLVE_DAYS, OPERATOR, RETURN_REPORT_HOURS, SECURITY_LOG_DAYS,
 } from './operator.js'
 import type { LegalSet } from './types.js'
@@ -120,9 +120,11 @@ export const en: LegalSet = {
               'Cloudinary: storing and resizing photos, including payment screenshots and QR codes.',
               'Vercel: hosting the website.',
               'MSG91: sending the OTP by SMS.',
+              'GitHub (Microsoft): running the nightly backup, which reads the whole database to copy it.',
               'Google speech recognition: only when you tap the microphone to speak instead of typing. Your phone sends that recording to Google to turn it into words; we never receive the recording.',
             ],
           },
+          'Google Cloud and Vercel keep a technical log of each request to the app, with the IP address and the phone or browser details, for up to 30 days, to keep the service working and secure.',
           'Some of these services may store information on servers outside India. We use them only as the law allows.',
         ],
       },
@@ -134,14 +136,15 @@ export const en: LegalSet = {
           'You can delete your account from the My Profile screen, or ask us to (see "How to delete your account" below). What happens then:',
           {
             list: [
-              `A seller's shop closes at once and she is signed out everywhere. After ${UNDO_DAYS} days her name, phone, address, UPI ID, QR code, photos, readiness answers and payment screenshots are erased. She can stop this by signing in during those ${UNDO_DAYS} days.`,
-              'A buyer\'s account is closed at once. Her name, phone and address are removed from her past orders, and her reviews keep their stars but lose her name.',
+              `A seller's shop closes at once and she is signed out everywhere. After ${UNDO_DAYS} days her name, phone, address, UPI ID, QR code, FSSAI number, photos, readiness answers and payment screenshots are erased, and her listings are removed with their photos. She can stop this by signing in during those ${UNDO_DAYS} days.`,
+              'A buyer\'s account is closed at once. Her name, phone and address are removed from her past orders, and her reviews keep their stars and their words but lose her name.',
               'We keep past orders (what was bought, the price, the date and the pincode), because they are also the other person\'s record.',
               'We keep the record of each ₹50 payment (the amount, the date and the UTR) for as long as the college\'s accounting rules require.',
               'We keep complaints, without your contact details, as a record of how they were handled.',
+              'If a buyer\'s number was blocked for misuse, we keep that number after her account is deleted, only so the block still holds.',
             ],
           },
-          'We keep backup copies of the database so the market can be restored after a failure. Deleted information can stay in a backup for a limited time until it is replaced. A backup is never used to bring back an account you deleted.',
+          'We keep backup copies of the database so the market can be restored after a failure. Deleted information leaves the nightly backup copy the next night, and the dated monthly copies within 12 months. A backup is never used to bring back an account you deleted.',
         ],
       },
       {
@@ -167,7 +170,7 @@ export const en: LegalSet = {
         heading: 'How to delete your account',
         body: [
           'On our website in any browser, or in the app: sign in, open My Profile and tap "Delete my account" at the very bottom.',
-          `If you cannot sign in, because the phone is lost or the OTP does not arrive: open the "Delete your account" page on our website (linked at the bottom of the home page), or phone or WhatsApp ${GRIEVANCE_OFFICER.phone}, or email ${GRIEVANCE_OFFICER.email}, with the mobile number you registered with. We will contact you to make sure the account is yours before we delete it.`,
+          `If you cannot sign in, because the phone is lost or the OTP does not arrive: open the "Delete your account" page on our website (linked at the bottom of the home page), or phone or WhatsApp the college office on ${COLLEGE_OFFICE.phone}, or email ${COLLEGE_OFFICE.email}, with the mobile number you registered with. We will contact you to make sure the account is yours before we delete it.`,
           'An account with an order still in progress cannot be deleted until that order is finished or cancelled, so that nobody is left waiting for a delivery or a payment.',
         ],
       },
@@ -295,9 +298,9 @@ export const en: LegalSet = {
       },
       {
         id: 'report',
-        heading: 'Reporting a listing or a review',
+        heading: 'Reporting a listing, a review or a person',
         body: [
-          'Buyers can report a listing, and buyers and sellers can report a review, with the Report button beside it. Choose a reason. A report does not remove anything by itself: college staff look at it and decide. The seller is never told who reported her.',
+          'Buyers can report a listing, a review or a shop, and sellers can report a review or a buyer they have had an order from, with the Report button beside it. Choose a reason. A report does not remove anything by itself: college staff look at it and decide. Nobody is told who reported them.',
         ],
       },
       {
@@ -308,6 +311,7 @@ export const en: LegalSet = {
             list: [
               'Selling or listing anything illegal, unsafe, stolen, counterfeit, or that needs a licence you do not have.',
               'Alcohol, tobacco, drugs, medicines, weapons, or animal products whose sale is banned.',
+              'Claims that a product treats, cures or prevents an illness, and health supplements or ayurvedic or herbal medicines.',
               'Photos you do not own, or photos of somebody else\'s product.',
               'False claims about a product, its ingredients or its price.',
               'Harassing, threatening or cheating a buyer, a seller or college staff.',
@@ -410,7 +414,7 @@ export const en: LegalSet = {
           {
             list: [
               'Food businesses in India must have FSSAI registration or a licence. Getting and keeping it is your responsibility. For a small home business, basic FSSAI registration is enough, and the college can help you apply.',
-              'If you have an FSSAI number, add it to your listing so buyers can see it.',
+              'If you have an FSSAI number, enter it when you register. It is kept with your shop details, where programme staff can see it.',
               'Make food cleanly and safely, and mark packets with the product name, weight or quantity, price, date made and best-before date.',
             ],
           },
@@ -515,7 +519,10 @@ export const en: LegalSet = {
       {
         id: 'operator',
         heading: 'Who runs this market',
-        body: [`${OPERATOR.nameEn}, ${OPERATOR.addressEn}.`],
+        body: [
+          `${OPERATOR.nameEn}, ${OPERATOR.addressEn}.`,
+          `For help with an order, a payment or your account, contact the college office: phone and WhatsApp ${COLLEGE_OFFICE.phone}, email ${COLLEGE_OFFICE.email}.`,
+        ],
       },
       {
         id: 'officer',

@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import { attachAuth, callerIp, requireRole } from './middleware/auth.js'
 import { hit, LIMITS, sweep as sweepLimits } from './auth/rateLimit.js'
 import { pruneSessions } from './auth/sessions.js'
+import { pruneAuthEvents } from './auth/events.js'
 import { describeAdminState } from './auth/admins.js'
 import { authRouter } from './routes/auth.routes.js'
 import { sellersRouter } from './routes/sellers.routes.js'
@@ -138,7 +139,7 @@ app.get('/api/analytics/seller/:id/week', requireRole('seller'), (req, res) => {
  */
 app.post('/api/dev/reset', (_req, res) => {
   if (!ALLOW_DEV_RESET) {
-    res.status(404).json({ error: 'Not found' })
+    res.status(404).json({ error: 'Not found', messageMr: 'हे सापडले नाही' })
     return
   }
   resetDb()
@@ -146,7 +147,7 @@ app.post('/api/dev/reset', (_req, res) => {
 })
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'Not found' })
+  res.status(404).json({ error: 'Not found', messageMr: 'हे सापडले नाही' })
 })
 
 /**
@@ -189,6 +190,10 @@ function startHousekeeping(): void {
   const timer = setInterval(() => {
     sweepLimits()
     if (pruneSessions(getDb()) > 0) save()
+    // The privacy policy says the security log is kept ninety days. It used
+    // to be pruned only when a new event was written, so a quiet fortnight
+    // kept rows past the promise. Now it is pruned on the clock as well.
+    if (pruneAuthEvents(getDb()) > 0) save()
     // Rejecting deletes the listing, so this only clears rows left by the
     // old 48-hour rule. A sweep, not a timer per product: timers do not
     // survive the next deploy.

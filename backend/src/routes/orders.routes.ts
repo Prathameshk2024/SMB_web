@@ -7,13 +7,14 @@ import {
 import { isMaharashtraPincode } from '@shared/seller.js'
 import { normalizeUtr, utrProblem } from '@shared/payment.js'
 import { getDb, save } from '../db/store.js'
-import { recordOrderCustomer } from '../db/customers.js'
+import { BLOCKED_MR, isCustomerBlocked, recordOrderCustomer } from '../db/customers.js'
 import { cancelOrder } from '../db/orderCancel.js'
 import { ordersToRate, writeRatings } from '../db/reviews.js'
 import { toPublicReview } from '@shared/review.js'
 import { canSellNow } from '@shared/subscription.js'
 import { newShortId } from '../db/ids.js'
 import { requireRole } from '../middleware/auth.js'
+import { demoOrderProblem } from '../demo.js'
 import { notifyOrderAdvanced, notifyOrderCancelled, notifyOrderPlaced, notifyPaymentClaimed } from '../push/notify.js'
 
 export const ordersRouter: Router = Router()
@@ -43,7 +44,7 @@ ordersRouter.get('/:id', requireRole('seller', 'customer'), (req, res) => {
   const auth = req.auth!
   const order = db.orders.find((o) => o.id === req.params.id)
   if (!order) {
-    res.status(404).json({ error: 'Order not found' })
+    res.status(404).json({ error: 'Order not found', messageMr: 'हे ऑर्डर सापडले नाही' })
     return
   }
   // An order is only visible to the two parties on it.
@@ -51,7 +52,7 @@ ordersRouter.get('/:id', requireRole('seller', 'customer'), (req, res) => {
     (auth.role === 'seller' && order.sellerId === auth.sellerId) ||
     (auth.role === 'customer' && order.customerId === auth.customerId)
   if (!mine) {
-    res.status(403).json({ error: 'Not your order' })
+    res.status(403).json({ error: 'Not your order', messageMr: 'हे ऑर्डर तुमचे नाही' })
     return
   }
 
@@ -120,6 +121,15 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
     return
   }
 
+  // Blocking revokes her sessions, so this is for a token that was minted
+  // before the block and is still inside the 400ms write window - and for
+  // the rule to be here, where the order is made, rather than only at the
+  // door.
+  if (isCustomerBlocked(db, auth.customerId!)) {
+    res.status(403).json({ error: 'Blocked', messageMr: BLOCKED_MR })
+    return
+  }
+
   // Rating what arrived comes first. Her app will not let her past the rating
   // screen; this is the same rule where the app cannot be talked round.
   const unrated = ordersToRate(db, db.orders.filter((o) => o.customerId === auth.customerId))
@@ -146,6 +156,14 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
         error: 'Seller unavailable',
         messageMr: 'ही विक्रेती सध्या ऑर्डर घेत नाही',
       })
+      return
+    }
+    // Play's reviewer stays inside the demo shop, and nobody real orders
+    // from it - see demo.ts. Refused here, where the order is made, so a
+    // product id kept from before the shop was hidden is no way round it.
+    const demo = demoOrderProblem(seller, auth)
+    if (demo) {
+      res.status(409).json(demo)
       return
     }
     /**
@@ -243,7 +261,7 @@ ordersRouter.post('/:id/advance', requireRole('seller'), (req, res) => {
     (o) => o.id === req.params.id && o.sellerId === req.auth!.sellerId,
   )
   if (!order) {
-    res.status(404).json({ error: 'Order not found' })
+    res.status(404).json({ error: 'Order not found', messageMr: 'हे ऑर्डर सापडले नाही' })
     return
   }
 
@@ -434,11 +452,11 @@ ordersRouter.post('/:id/confirm-payment', requireRole('seller'), (req, res) => {
     (o) => o.id === req.params.id && o.sellerId === req.auth!.sellerId,
   )
   if (!order) {
-    res.status(404).json({ error: 'Order not found' })
+    res.status(404).json({ error: 'Order not found', messageMr: 'हे ऑर्डर सापडले नाही' })
     return
   }
   if (order.paymentMode !== 'UPI') {
-    res.status(409).json({ error: 'Not a UPI order' })
+    res.status(409).json({ error: 'Not a UPI order', messageMr: 'हे UPI ऑर्डर नाही' })
     return
   }
   order.paymentStatus = 'UPI_CONFIRMED'

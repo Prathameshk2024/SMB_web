@@ -29,9 +29,11 @@ import {
 } from '../../components/ui.js'
 import { ProductCard } from './Browse.js'
 import {
-  IconAddressHome, IconAddressOther, IconAllClear, IconCall, IconCart, IconCash, IconChevron, IconNext, IconOrders, IconPlus, IconProduct, IconProfile, IconUpi, IconWhatsapp, StatusIcon,
+  IconAddressHome, IconAddressOther, IconAllClear, IconCall, IconCart, IconCash, IconChevron, IconEdit, IconNext, IconOrders, IconPlus, IconProduct, IconProfile, IconUpi, IconWhatsapp, StatusIcon,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
+import { ComplaintSheet } from '../../components/ComplaintSheet.js'
+import { SUPPORT_PHONE } from '../seller/Misc.js'
 
 /**
  * "ASK THE SELLER" WITH SOMETHING TO ASK WITH.
@@ -359,7 +361,7 @@ export function Checkout() {
       setCustomerData(await api.customerMe())
       toast(t('ok.addressSaved'))
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setSavingAddress(false)
     }
@@ -406,7 +408,9 @@ export function Checkout() {
       toast(t('ok.orderPlaced'))
       nav(`/shop/placed/${res.orders[0]!.id}`, { replace: true })
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      // A blocked number: said in the screen's language, not the server's Marathi.
+      if (e instanceof ApiError && e.status === 403 && e.message === 'Blocked') setErr(t('err.blocked'))
+      else setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setBusy(false)
     }
@@ -685,7 +689,7 @@ export function TrackOrder() {
       setData(await api.order(order.id))
       toast(t('ok.paymentSubmitted'))
     } catch (e) {
-      setPayErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setPayErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setPaying(false)
     }
@@ -899,6 +903,10 @@ export function CustomerProfile() {
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
+  /** Open while she is writing what went wrong. */
+  const [complaining, setComplaining] = useState(false)
+  /** The address she has asked to remove, while the sheet asks her to confirm. */
+  const [removing, setRemoving] = useState<Address | null>(null)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -1032,11 +1040,7 @@ export function CustomerProfile() {
                       variant="danger"
                       size="sm"
                       disabled={busy}
-                      onClick={() => {
-                        if (confirm(t('cus.deleteAddressConfirm'))) {
-                          void run(() => api.deleteAddress(a.id))
-                        }
-                      }}
+                      onClick={() => setRemoving(a)}
                     >
                       {t('cus.deleteAddress')}
                     </Button>
@@ -1071,6 +1075,29 @@ export function CustomerProfile() {
           </p>
           <TourMenu role="customer" />
         </div>
+
+        {/* The same desk the seller's Help screen reaches. A buyer whose order
+            went wrong had nobody to tell but the seller it went wrong with. */}
+        <Card data-wt="cprof-help">
+          <SectionTitle>{t('help.contact')}</SectionTitle>
+          <div className="stack-sm">
+            <a className="btn btn--ghost" href={`https://wa.me/91${SUPPORT_PHONE}`} target="_blank" rel="noreferrer">
+              <IconWhatsapp aria-hidden="true" /> {t('help.whatsapp')}
+            </a>
+            <a className="btn btn--ghost" href={`tel:+91${SUPPORT_PHONE}`}>
+              <IconCall aria-hidden="true" /> {t('help.call')}
+            </a>
+            <Button variant="quiet" onClick={() => setComplaining(true)}>
+              <IconEdit aria-hidden="true" /> {t('help.complaint')}
+            </Button>
+          </div>
+        </Card>
+
+        <ComplaintSheet
+          open={complaining}
+          onClose={() => setComplaining(false)}
+          whatsappHref={`https://wa.me/91${SUPPORT_PHONE}`}
+        />
 
         <PoliciesTile />
 
@@ -1107,6 +1134,23 @@ export function CustomerProfile() {
         tone="danger"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
+
+      {/* Not the browser's confirm(): inside the APK it heads the question
+          with the site's address, which reads as a warning from somewhere
+          else. The address itself is the consequence, so it is the body. */}
+      <ConfirmSheet
+        open={!!removing}
+        title={t('cus.deleteAddressConfirm')}
+        body={removing ? `${removing.label} - ${addressLine(removing)}` : undefined}
+        confirmLabel={t('cus.deleteAddress')}
+        tone="danger"
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          const a = removing
+          setRemoving(null)
+          if (a) void run(() => api.deleteAddress(a.id))
+        }}
       />
 
       <CloseAccountSheet

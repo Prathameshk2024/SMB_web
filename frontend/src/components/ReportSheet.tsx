@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  MAX_REPORT_NOTE, REPORT_REASONS, type ReportReason, type ReportTarget, reportProblems,
+  MAX_REPORT_NOTE, type ReportReason, type ReportTarget, reasonsFor, reportProblems,
 } from '@shared/report.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { api, ApiError } from '../lib/api.js'
@@ -20,10 +20,15 @@ import { Button, Choice, Notice, VoiceInput } from './ui.js'
  * she sees something wrong she will not bother.
  */
 export function ReportSheet({
-  targetType, targetId, title, open, onClose,
+  targetType, targetId, orderId, title, open, onClose,
 }: {
   targetType: ReportTarget
   targetId: string
+  /**
+   * The order a buyer is being reported from. A seller may only report a
+   * buyer she has dealt with, and this is what the server checks that against.
+   */
+  orderId?: string
   /** What she is reporting, so the sheet can name it back to her. */
   title?: string
   open: boolean
@@ -48,14 +53,16 @@ export function ReportSheet({
   }
 
   async function send() {
-    const problems = reportProblems({ reason, note })
+    const problems = reportProblems({ reason, note }, targetType)
     setFieldErr(problems)
     if (Object.keys(problems).length) return
 
     setBusy(true)
     setErr('')
     try {
-      await api.report({ targetType, targetId, reason: reason as ReportReason, note: note.trim() })
+      await api.report({
+        targetType, targetId, orderId, reason: reason as ReportReason, note: note.trim(),
+      })
       toast(t('report.sent'))
       close()
     } catch (e) {
@@ -72,11 +79,14 @@ export function ReportSheet({
           <div className="stack-sm">
             <h2 className="h2">{t('report.title')}</h2>
             {title && <p className="body muted">{title}</p>}
-            <p className="small dim">{t('report.sub')}</p>
+            {/* Who is not told depends on who is being reported. */}
+            <p className="small dim">{t(targetType === 'customer' ? 'report.subBuyer' : 'report.sub')}</p>
           </div>
 
           <div className="stack-sm">
-            {REPORT_REASONS.map((r) => (
+            {/* Each target has its own list: "unsafe to eat" says nothing
+                about a buyer, and "never took delivery" nothing about pickle. */}
+            {reasonsFor(targetType).map((r) => (
               <Choice
                 key={r}
                 selected={reason === r}
@@ -114,12 +124,16 @@ export function ReportSheet({
   )
 }
 
-/** The quiet link that opens it, wherever reportable content is shown. */
-export function ReportLink({ onClick }: { onClick: () => void }) {
+/**
+ * The quiet link that opens it, wherever reportable content is shown. A
+ * `labelKey` names what is being reported when the screen alone does not -
+ * "Report" under a review is plain, beside a shop's name it is not.
+ */
+export function ReportLink({ onClick, labelKey = 'report.link' }: { onClick: () => void; labelKey?: string }) {
   const t = useT()
   return (
     <button type="button" className="linkbtn linkbtn--quiet" onClick={onClick}>
-      {t('report.link')}
+      {t(labelKey)}
     </button>
   )
 }

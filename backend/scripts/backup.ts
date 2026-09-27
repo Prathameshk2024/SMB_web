@@ -6,8 +6,8 @@
  *   1. Reads every backed-up Firestore collection from the live project and
  *      writes it to a dated, gzipped JSON file in backend/data/backups/,
  *      keeping every copy from the last BACKUP_KEEP_DAYS (30) and the first
- *      of each month after that. Unpacked, it is db.json's shape, so the JSON
- *      driver can boot from it directly:
+ *      of each month for BACKUP_KEEP_MONTHS (12) after that. Unpacked, it is
+ *      db.json's shape, so the JSON driver can boot from it directly:
  *        node -e "process.stdout.write(require('zlib').gunzipSync(require('fs').readFileSync(process.argv[1])))" <file> > data/db.json
  *      `npm run restore -- --file <file>` loads it back into Firestore.
  *   2. Mirrors the same documents into a backup Firebase project on another
@@ -15,8 +15,11 @@
  *      backup was last taken (see shrinkProblems in src/db/backupPlan.ts).
  *   3. Copies every photo the backup Cloudinary account does not have yet,
  *      Cloudinary to Cloudinary, keeping the same public_id, and downloads new
- *      ones to backend/data/backups/images/. Photos are never deleted from
- *      either copy: the payment screenshots are the proof behind approvals.
+ *      ones to backend/data/backups/images/. Photos the live account no
+ *      longer has are removed from both - a deleted account's screenshots
+ *      and product photos are destroyed live, and the privacy policy says
+ *      backups follow within a limited time - under the same shrink check
+ *      as the database (photosToPrune).
  *
  * The live project is only ever READ. Its free plan allows 50,000 reads a
  * day and one run costs one read per document - the same as one API start -
@@ -41,11 +44,11 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { ALLOW_BULK_DELETE, cloudinary, firebase } from '../src/config.js'
 import { getFirestoreDb } from '../src/db/firestore.js'
 import {
-  BACKED_UP, pickTargets, readTargets, shrinkProblems, snapshotName, snapshotsToPrune,
-  type BackupTarget,
+  BACKED_UP, imagePublicIds, photosToPrune, pickTargets, readTargets, shrinkProblems, snapshotName,
+  snapshotsToPrune, type BackupTarget,
 } from '../src/db/backupPlan.js'
 import {
-  applyMirror, countsOf, listAssets, readCollections, uploadAsset, type Asset, type Collections,
+  applyMirror, countsOf, deleteAssets, listAssets, readCollections, uploadAsset, type Asset, type Collections,
 } from '../src/db/backupIo.js'
 
 const args = process.argv.slice(2)
@@ -60,6 +63,7 @@ const BACKUP_DIR = process.env.BACKUP_DIR?.trim()
   ? path.resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BACKUP_DIR.trim())
   : path.join(here, '../data/backups')
 const KEEP_DAYS = Math.max(1, Number(process.env.BACKUP_KEEP_DAYS) || 30)
+const KEEP_MONTHS = Math.max(1, Number(process.env.BACKUP_KEEP_MONTHS) || 12)
 
 let failed = false
 function fail(message: string): void {
@@ -83,7 +87,7 @@ function writeLocalSnapshot(live: Collections): void {
   }
 
   const existing = fs.existsSync(BACKUP_DIR) ? fs.readdirSync(BACKUP_DIR) : []
-  const doomed = snapshotsToPrune([...existing, path.basename(file)], now, KEEP_DAYS)
+  const doomed = snapshotsToPrune([...existing, path.basename(file)], now, KEEP_DAYS, KEEP_MONTHS)
 
   if (dryRun) {
     console.log(`  local    would write ${file}`)
@@ -98,7 +102,7 @@ function writeLocalSnapshot(live: Collections): void {
   // never shrinks the history it was meant to add to.
   for (const name of doomed) fs.rmSync(path.join(BACKUP_DIR, name))
   if (doomed.length) {
-    console.log(`  local    pruned ${doomed.length} copies older than ${KEEP_DAYS} days (first of each month kept)`)
+    console.log(`  local    pruned ${doomed.length} copies older than ${KEEP_DAYS} days (first of each month kept ${KEEP_MONTHS} months)`)
   }
 }
 
@@ -155,8 +159,16 @@ async function mirrorCloudinary(target: BackupTarget, assets: Asset[], folder: s
   try {
     const have = new Set((await listAssets(to, folder)).map((a) => a.public_id))
     const missing = assets.filter((a) => !have.has(a.public_id))
+    // Photos the live account has destroyed - a closed account's, a deleted
+    // listing's - go from the backup too, unless so many are missing that
+    // the live account itself looks damaged.
+    const prune = photosToPrune(assets.map((a) => a.public_id), have, { source: 'live', target: to.cloudName })
+    if (prune.problem && !ALLOW_BULK_DELETE) {
+      fail(`photos → ${to.cloudName}: ${prune.problem}. Nothing was removed; re-run with ALLOW_BULK_DELETE=true if the live account is right.`)
+    }
+    const remove = prune.problem && !ALLOW_BULK_DELETE ? [] : prune.remove
     if (dryRun) {
-      console.log(`  photos   → ${to.cloudName}: would copy ${missing.length} of ${assets.length}`)
+      console.log(`  photos   → ${to.cloudName}: would copy ${missing.length} of ${assets.length}, would remove ${remove.length}`)
       return
     }
     let copied = 0
@@ -169,18 +181,45 @@ async function mirrorCloudinary(target: BackupTarget, assets: Asset[], folder: s
         fail(`photo ${asset.public_id} → ${to.cloudName}: ${(err as Error).message}`)
       }
     }
-    console.log(`  photos   → ${to.cloudName}: copied ${copied} new, ${assets.length} in total`)
+    const removed = remove.length ? await deleteAssets(to, remove) : 0
+    console.log(`  photos   → ${to.cloudName}: copied ${copied} new, removed ${removed}, ${assets.length} in total`)
   } catch (err) {
     fail(`photos → ${to.cloudName}: ${(err as Error).message}`)
   }
 }
 
-/** Only files not already on disk, so each run downloads just the new ones. */
-async function downloadAssets(assets: Asset[]): Promise<void> {
+/** Every file under the images directory, as paths relative to it. */
+function localImageFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return []
+  const out: string[] = []
+  const walk = (sub: string) => {
+    for (const entry of fs.readdirSync(path.join(dir, sub), { withFileTypes: true })) {
+      const rel = sub ? `${sub}/${entry.name}` : entry.name
+      if (entry.isDirectory()) walk(rel)
+      else out.push(rel)
+    }
+  }
+  walk('')
+  return out
+}
+
+/**
+ * Only files not already on disk, so each run downloads just the new ones -
+ * and files the live account no longer has are removed, under the same
+ * check as the backup account's copy.
+ */
+async function downloadAssets(assets: Asset[], folder: string): Promise<void> {
   const dir = path.join(BACKUP_DIR, 'images')
   const missing = assets.filter((a) => !fs.existsSync(path.join(dir, `${a.public_id}.${a.format}`)))
+  const onDisk = imagePublicIds(localImageFiles(dir), folder)
+  const prune = photosToPrune(assets.map((a) => a.public_id), onDisk.map((f) => f.publicId), { source: 'live', target: 'the local copy' })
+  if (prune.problem && !ALLOW_BULK_DELETE) {
+    fail(`photos local: ${prune.problem}. Nothing was removed; re-run with ALLOW_BULK_DELETE=true if the live account is right.`)
+  }
+  const doomed = new Set(prune.problem && !ALLOW_BULK_DELETE ? [] : prune.remove)
+  const remove = onDisk.filter((f) => doomed.has(f.publicId)).map((f) => f.path)
   if (dryRun) {
-    console.log(`  photos   local: would download ${missing.length} of ${assets.length}`)
+    console.log(`  photos   local: would download ${missing.length} of ${assets.length}, would remove ${remove.length}`)
     return
   }
   let saved = 0
@@ -196,7 +235,8 @@ async function downloadAssets(assets: Asset[]): Promise<void> {
       fail(`download ${asset.public_id}: ${(err as Error).message}`)
     }
   }
-  console.log(`  photos   local: downloaded ${saved} new, ${assets.length} in total`)
+  for (const rel of remove) fs.rmSync(path.join(dir, rel), { force: true })
+  console.log(`  photos   local: downloaded ${saved} new, removed ${remove.length}, ${assets.length} in total`)
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,7 +283,7 @@ async function main(): Promise<void> {
   if (cloudinary) {
     try {
       const assets = await listAssets(cloudinary, folder)
-      if (localImages) await downloadAssets(assets)
+      if (localImages) await downloadAssets(assets, folder)
       for (const t of chosen) if (t.cloudinary) await mirrorCloudinary(t, assets, folder)
     } catch (err) {
       fail(`listing the live Cloudinary: ${(err as Error).message}`)

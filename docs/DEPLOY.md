@@ -461,21 +461,26 @@ cannot change after the first upload. It replaced
 
 ### Permissions
 
-Declared in both the wrapper's `app.json` and its committed
-`android/app/src/main/AndroidManifest.xml`. As of `sub-main` on 26 September
-2026:
+Declared in the wrapper's `app.json` and its committed
+`android/app/src/main/AndroidManifest.xml`. As checked in the merged manifest
+of the release APK built on 26 September 2026 (see
+`docs/PLAY-READINESS-REVIEW.md`, *Checked and passing*):
 
 | Permission | Why | What to do |
 |---|---|---|
 | `INTERNET` | The whole app | Keep |
-| `RECORD_AUDIO` (listed twice) | Voice typing | Keep once |
+| `RECORD_AUDIO` | Voice typing | Keep |
 | `CAMERA` | Nothing uses the camera | **Keep, on purpose** — see below |
-| `ACCESS_BACKGROUND_LOCATION` | Nothing | **Remove before any Play submission.** Play demands a declaration and a video for it and rejects apps that cannot justify it |
-| `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` | Nothing — the site never asks for location | Remove |
-| `SYSTEM_ALERT_WINDOW` in the main manifest | Nothing | Remove; it belongs only in the debug manifests, where it already is |
-| `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` | Only a fallback download path; no effect on Android 13+ | Remove |
-| `VIBRATE` | Nothing | Harmless |
-| `POST_NOTIFICATIONS` | Push on Android 13+ | Not declared in the repo; expected from the Firebase Messaging library's manifest at build time. **Check the built APK** |
+| `POST_NOTIFICATIONS` | Push on Android 13+ | Keep |
+| `VIBRATE` | Notifications | Keep |
+
+Libraries merge in only normal-level permissions (network state, boot, wake
+lock, FCM, launcher badges, install referrer). **No location, storage,
+`SYSTEM_ALERT_WINDOW`, SMS or contacts permission is declared**, so nothing
+on the Data safety form or the permissions declaration form is needed for
+them. An earlier version of this table listed location, storage and
+`SYSTEM_ALERT_WINDOW` as "to remove"; they are gone. If one reappears in a
+built APK, remove it before uploading - do not declare it.
 
 **`CAMERA` decides what the photo picker offers.** `react-native-webview`
 (13.16, `needsCameraPermission`) offers a "take photo" choice beside the

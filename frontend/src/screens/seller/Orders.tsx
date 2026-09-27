@@ -16,6 +16,7 @@ import {
   Loading, Notice, Pill, Rupees, SectionTitle, VoiceInput, useAsync,
 } from '../../components/ui.js'
 import { ReviewList } from '../../components/Reviews.js'
+import { ReportLink, ReportSheet } from '../../components/ReportSheet.js'
 import {
   IconCall, IconCheck, IconMap, IconOrders, IconProduct, StatusIcon,
 } from '../../components/icons.js'
@@ -105,6 +106,8 @@ export function SellerOrderDetail() {
   /** The Accept she has tapped, while she is being asked how long it will take. */
   const [estimateFor, setEstimateFor] = useState<SellerAction | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
+  /** Open while she is saying what the buyer did. */
+  const [reportingBuyer, setReportingBuyer] = useState(false)
   const [busy, setBusy] = useState(false)
 
   if (loading) {
@@ -289,6 +292,13 @@ export function SellerOrderDetail() {
           </Button>
         )}
 
+        {/* A buyer who never opens the door, or says she paid when nothing
+            came, is someone the next seller should not have to meet. Quiet,
+            at the very foot, and never in the action bar. */}
+        <div className="center">
+          <ReportLink labelKey="report.buyerLink" onClick={() => setReportingBuyer(true)} />
+        </div>
+
         {actions.length > 0 && (
           <div className="actionbar">
             {actions.map((a) => (
@@ -309,6 +319,15 @@ export function SellerOrderDetail() {
           </div>
         )}
       </div>
+
+      <ReportSheet
+        targetType="customer"
+        targetId={order.customerId}
+        orderId={order.id}
+        title={order.customerName}
+        open={reportingBuyer}
+        onClose={() => setReportingBuyer(false)}
+      />
 
       <CancelOrderSheet
         order={order}

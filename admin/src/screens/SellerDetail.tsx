@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import type { AdminNotice, DigitalProfile, SubscriptionPayment } from '@shared/types.js'
 import { BAND_LABEL, MAX_SCORE, SELF_REPORTED_FACTORS } from '@shared/readiness.js'
@@ -12,8 +12,9 @@ import { ProductCard } from './Products.js'
 import { ReviewTable, SummaryText } from './Reviews.js'
 import { IconNo, IconProducts, IconYes } from '../components/icons.js'
 import {
-  Card, CopyValue, EmptyState, ErrorNote, Loading, Notice, Pill, SectionTitle, useAsync,
+  Button, Card, CopyValue, EmptyState, ErrorNote, Loading, Notice, Pill, SectionTitle, useAsync,
 } from '../components/ui.js'
+import { useToast } from '../store/ToastContext.js'
 
 /**
  * One woman's page.
@@ -161,7 +162,55 @@ function Identity({ detail, onDone }: { detail: Detail; onDone: () => void }) {
       <div style={{ marginTop: 12 }}>
         <SellerActions seller={seller} onDone={onDone} />
       </div>
+
+      <ShopReports detail={detail} onDone={onDone} />
     </Card>
+  )
+}
+
+/**
+ * What buyers reported about the SHOP - not about a listing, which sits on
+ * the Products screen. A report changes nothing on its own, and closing them
+ * changes nothing either: the two things an admin can do about a shop are
+ * Block and Close, above, and this card says so.
+ */
+function ShopReports({ detail, onDone }: { detail: Detail; onDone: () => void }) {
+  const t = useT()
+  const { toast } = useToast()
+  const [busy, setBusy] = useState(false)
+  const reports = detail.seller.reports ?? []
+  if (reports.length === 0) return null
+
+  async function clear() {
+    setBusy(true)
+    try {
+      await api.clearSellerReports(detail.seller.id)
+      toast(t('rp.cleared'))
+      onDone()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="stack-sm" style={{ marginTop: 12 }}>
+      <div className="strong" style={{ color: 'var(--danger)' }}>
+        {t('rp.sellerCount', { n: reports.length })}
+      </div>
+      <ul className="reportlist">
+        {reports.map((r) => (
+          <li key={r.id}>
+            {t(`report.reason.${r.reason}`)}
+            {r.note && <> — {r.note}</>}
+            <span className="dim-2 small"> · {when(r.at)}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="small dim">{t('rp.sellerSub')}</div>
+      <div>
+        <Button variant="quiet" small disabled={busy} onClick={() => void clear()}>{t('rp.clear')}</Button>
+      </div>
+    </div>
   )
 }
 

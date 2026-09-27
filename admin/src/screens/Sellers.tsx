@@ -9,7 +9,7 @@ import { SELLER_SORTS, sortRows } from '../lib/sort.js'
 import { SellerActions, StatusPill } from '../components/SellerActions.js'
 import { SubscriptionPill } from '../components/Subscription.js'
 import {
-  Button, Card, CopyValue, EmptyState, ErrorNote, Loading, useAsync,
+  Button, Card, CopyValue, EmptyState, ErrorNote, Loading, Pill, useAsync,
 } from '../components/ui.js'
 
 /**
@@ -26,13 +26,15 @@ import {
 export function Sellers() {
   const t = useT()
   const [q, setQ] = useState('')
-  /** '' for everyone, or one subscription state - who to ring this week. */
-  const [sub, setSub] = useState<'' | 'expiring' | 'expired'>('')
+  /** '' for everyone, one subscription state - who to ring this week - or the reported queue. */
+  const [sub, setSub] = useState<'' | 'expiring' | 'expired' | 'reported'>('')
   const [data, loading, error, reload] = useAsync(() => api.sellers(), [])
   const [sort, setSort] = useSort('sellers', SELLER_SORTS)
 
   const rows = useMemo(() => {
-    const all = (data?.sellers ?? []).filter((s) => !sub || s.subscription?.state === sub)
+    const all = (data?.sellers ?? []).filter((s) =>
+      !sub ? true : sub === 'reported' ? !!s.reports?.length : s.subscription?.state === sub,
+    )
     const needle = q.trim().toLowerCase()
     const found = !needle
       ? all
@@ -66,6 +68,10 @@ export function Sellers() {
             <option value="">{t('se.subAll')}</option>
             <option value="expiring">{t('se.subExpiring')}</option>
             <option value="expired">{t('se.subExpired')}</option>
+            {/* Buyers' reports about shops: a queue, like reported listings. */}
+            <option value="reported">
+              {t('se.subReported')}{data?.reportedCount ? ` (${data.reportedCount})` : ''}
+            </option>
           </select>
           <SortSelect options={SELLER_SORTS} value={sort} onChange={setSort} />
         </div>
@@ -102,6 +108,9 @@ function SellerCard({ seller, onDone }: { seller: SellerRow; onDone: () => void 
             {/* Only for a seller who is selling: a registered woman who has
                 never paid has no six months to show. */}
             {seller.status === 'ACTIVE' && <SubscriptionPill view={seller.subscription} />}
+            {!!seller.reports?.length && (
+              <Pill tone="danger">{t('se.reportedPill', { n: seller.reports.length })}</Pill>
+            )}
           </div>
           <div className="small dim">
             <span className="mono">{seller.womenBizId}</span>
