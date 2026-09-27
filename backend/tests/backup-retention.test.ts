@@ -4,9 +4,10 @@ import assert from 'node:assert/strict'
 process.env.SESSION_SECRET = 'test-secret-for-unit-tests'
 
 const {
-  BACKED_UP, SNAPSHOT_COLLECTION, joinSnapshot, photosToPrune, snapshotPartId, snapshotsToPrune, splitSnapshot,
-  storedSnapshotsToPrune,
+  BACKED_UP, SNAPSHOT_COLLECTION, joinSnapshot, photosToPrune, readBackProblem, snapshotPartId, snapshotsToPrune,
+  splitSnapshot, storedSnapshotsToPrune,
 } = await import('../src/db/backupPlan.js')
+const { gzipSync } = await import('node:zlib')
 const { COLLECTIONS } = await import('../src/db/firestore.js')
 
 /**
@@ -106,6 +107,24 @@ test('a copy a run died writing is removed, and never kept as its month', () => 
   const whole = stored('firestore-2026-03-02T21-30.json.gz')
   const doomed = storedSnapshotsToPrune([...broken, ...whole], now, 30, 12)
   assert.deepEqual(doomed, broken.map((p) => p.id), 'the broken one goes; the whole one is March')
+})
+
+/**
+ * The backup keys live only in GitHub, so no laptop reads a stored copy until
+ * the day one is needed. The nightly run reads tonight's back instead, and
+ * this is the question it asks.
+ */
+test('a stored copy is checked by reading it back, not by trusting the write', () => {
+  const copy = { sessions: [], sellers: [{ id: 's1' }, { id: 's2' }], orders: [{ id: 'o1' }] }
+  const gz = gzipSync(JSON.stringify(copy))
+  const live = { sellers: 2, orders: 1 }
+
+  assert.equal(readBackProblem(gz, gz, live), null, 'the same bytes, the same documents: it restores')
+  assert.match(readBackProblem(gz.subarray(0, 10), gz, live)!, /differ/, 'a part lost on the way back')
+  assert.match(readBackProblem(gz, gz, { sellers: 3, orders: 1 })!, /sellers: 2 in the copy, 3 live/, 'a copy short of what live held')
+  assert.match(readBackProblem(gz, gz, { ...live, reviews: 4 })!, /reviews: missing/, 'a collection that never made it in')
+  const junk = gzipSync('not json')
+  assert.match(readBackProblem(junk, junk, live)!, /does not unpack/)
 })
 
 test('photos the live account destroyed are removed from a backup', () => {

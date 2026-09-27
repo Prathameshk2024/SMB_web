@@ -56,10 +56,10 @@ import { ALLOW_BULK_DELETE, cloudinary, firebase } from '../src/config.js'
 import { getFirestoreDb } from '../src/db/firestore.js'
 import {
   BACKED_UP, imagePublicIds, photosToPrune, pickTargets, readTargets, shrinkProblems, snapshotName,
-  snapshotsToPrune, storedSnapshotsToPrune, type BackupTarget,
+  readBackProblem, snapshotsToPrune, storedSnapshotsToPrune, type BackupTarget,
 } from '../src/db/backupPlan.js'
 import {
-  applyMirror, countsOf, deleteAssets, deleteSnapshotParts, listAssets, listSnapshotParts, readCollections,
+  applyMirror, countsOf, deleteAssets, deleteSnapshotParts, fetchSnapshot, listAssets, listSnapshotParts, readCollections,
   storeSnapshot, uploadAsset, type Asset, type Collections,
 } from '../src/db/backupIo.js'
 
@@ -138,7 +138,7 @@ function writeLocalSnapshot(gz: Buffer, now: Date): void {
  * Pruning happens only after tonight's copy is stored, so a run that fails
  * to write never shrinks the history it was meant to add to.
  */
-async function keepSnapshot(db: Firestore, label: string, gz: Buffer, now: Date): Promise<void> {
+async function keepSnapshot(db: Firestore, label: string, gz: Buffer, now: Date, live: Collections): Promise<void> {
   const name = snapshotName(now)
   try {
     const existing = await listSnapshotParts(db)
@@ -150,10 +150,16 @@ async function keepSnapshot(db: Firestore, label: string, gz: Buffer, now: Date)
       return
     }
     const parts = await storeSnapshot(db, name, gz, now)
+    // Read it straight back, the way a restore would. The keys are only in
+    // GitHub, so this is the one place a stored copy is ever proven to work
+    // before the day it is needed. Pruning goes ahead either way: it is by
+    // age, and the twelve months are kept whether or not tonight went well.
+    const problem = readBackProblem(await fetchSnapshot(db, name), gz, countsOf(live))
+    if (problem) fail(`copies → ${label}: ${name} did not read back as stored - ${problem}`)
     const doomed = storedSnapshotsToPrune(await listSnapshotParts(db), now, KEEP_DAYS, KEEP_MONTHS)
     await deleteSnapshotParts(db, doomed)
     const kept = new Set((await listSnapshotParts(db)).map((p) => p.snapshot)).size
-    console.log(`  copies   → ${label}: stored ${name} (${(gz.length / 1024).toFixed(0)} KB, ${parts} part${parts === 1 ? '' : 's'}), pruned ${doomed.length} parts, ${kept} copies kept`)
+    console.log(`  copies   → ${label}: stored ${name} (${(gz.length / 1024).toFixed(0)} KB, ${parts} part${parts === 1 ? '' : 's'})${problem ? '' : ', read back and checked'}, pruned ${doomed.length} parts, ${kept} copies kept`)
   } catch (err) {
     fail(`copies → ${label}: ${(err as Error).message}`)
   }
@@ -180,7 +186,7 @@ async function mirrorFirestore(target: BackupTarget, live: Collections, gz: Buff
     // target (docs/BACKUP.md §4) - and a dated copy of everybody stored inside
     // the live database is the last thing it should leave behind. The docs
     // name that target `live`, so the name alone stops it as well as the flag.
-    if (storeCopies && target.name !== 'live') await keepSnapshot(db, config.projectId, gz, now)
+    if (storeCopies && target.name !== 'live') await keepSnapshot(db, config.projectId, gz, now, live)
     const backup = await readCollections(db, BACKED_UP)
 
     const problems = shrinkProblems(countsOf(live), countsOf(backup))
