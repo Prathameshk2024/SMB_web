@@ -52,9 +52,12 @@ Security practices:
   account) and at the deletion URL above.
 - **What is kept after deletion** (disclosed in the privacy policy): past
   orders without the buyer's identity, reviews' stars and words under a
-  placeholder name, the ₹50 payment ledger, complaints without contact
-  details, a blocked buyer's number (so the block holds), and backup copies:
-  the nightly one until the next night, the monthly ones for 12 months.
+  placeholder name (with the product's name, as long as the order they were
+  written on), the ₹50 payment ledger, complaints and reports without contact
+  details or shop and product names, a blocked buyer's number (so the block
+  holds), and backup copies: the nightly one until the next night, the
+  monthly ones for 12 months. The same list is on the `/delete-account` page
+  (`del.whatStays`); Play compares the two, so change both.
 
 ## Other declarations
 
