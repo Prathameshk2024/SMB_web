@@ -19,9 +19,9 @@ import { useToast } from '../store/ToastContext.js'
  * intro says to ring the seller first, and the reports are grouped by buyer
  * so "three sellers, three different orders" is visible as such.
  */
-export function ReportedBuyers() {
+export function ReportedBuyers({ version, onChanged }: { version: number; onChanged: () => void }) {
   const t = useT()
-  const [data, loading, error, reload] = useAsync(() => api.reportedBuyers(), [])
+  const [data, loading, error] = useAsync(() => api.reportedBuyers(), [version])
   const rows = data?.buyers ?? []
 
   return (
@@ -35,7 +35,7 @@ export function ReportedBuyers() {
         <EmptyState title={t('rb.empty')} />
       ) : (
         <div className="stack-sm">
-          {rows.map((b) => <BuyerRow key={b.customerId} buyer={b} onDone={reload} />)}
+          {rows.map((b) => <BuyerRow key={b.customerId} buyer={b} onDone={onChanged} />)}
         </div>
       )}
     </Card>
@@ -189,13 +189,57 @@ export function BlockButton({
 }
 
 /** For the buyer nobody reported in the app: the complaint that came by phone. */
-export function BlockByNumberCard() {
+export function BlockByNumberCard({ onChanged }: { onChanged: () => void }) {
   const t = useT()
   return (
     <Card>
       <SectionTitle>{t('rb.byNumberTitle')}</SectionTitle>
       <p className="small dim" style={{ marginTop: 0 }}>{t('rb.byNumberSub')}</p>
-      <BlockButton phone="" blocked={false} askPhone onDone={() => undefined} />
+      <BlockButton phone="" blocked={false} askPhone onDone={onChanged} />
+    </Card>
+  )
+}
+
+/**
+ * Every blocked number, whether it came from a report or was typed in. A
+ * number blocked by typing was never reported, so it appears nowhere else,
+ * and this is where its block is seen and lifted.
+ */
+export function BlockedBuyers({ version, onChanged }: { version: number; onChanged: () => void }) {
+  const t = useT()
+  const [data, loading, error] = useAsync(() => api.blockedBuyers(), [version])
+  const rows = data?.buyers ?? []
+
+  return (
+    <Card>
+      <SectionTitle>{t('rb.blockedTitle')}{rows.length ? ` (${rows.length})` : ''}</SectionTitle>
+      <p className="small dim" style={{ marginTop: 0 }}>{t('rb.blockedSub')}</p>
+      <ErrorNote error={error} />
+      {loading ? (
+        <Loading />
+      ) : rows.length === 0 ? (
+        <EmptyState title={t('rb.blockedEmpty')} />
+      ) : (
+        <div className="stack-sm">
+          {rows.map((b) => (
+            <div key={b.customerId} className="stack-sm" style={{ paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+              <div className="row wrap" style={{ gap: 8, alignItems: 'baseline' }}>
+                {b.name && <span className="strong">{b.name}</span>}
+                <span className="mono">+91 {b.phone}</span>
+                <Pill tone="warn">{t('rb.blocked')}</Pill>
+                {b.blockedAt && <span className="dim-2 small">{when(b.blockedAt)}</span>}
+              </div>
+              {b.blockReason && (
+                <div className="small" style={{ color: 'var(--danger)' }}>{t('c.reason')}: {b.blockReason}</div>
+              )}
+              {b.blockedBy && <div className="small dim">{t('rb.blockedBy', { who: b.blockedBy })}</div>}
+              <div className="row wrap" style={{ gap: 8 }}>
+                <BlockButton phone={b.phone} blocked onDone={onChanged} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   )
 }

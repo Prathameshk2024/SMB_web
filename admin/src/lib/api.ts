@@ -206,6 +206,16 @@ export interface ReportedBuyer {
   reports: Report[]
 }
 
+/** A blocked number, reported or typed in - the row the desk lifts a block from. */
+export interface BlockedBuyer {
+  customerId: string
+  name: string
+  phone: string
+  blockReason?: string
+  blockedAt?: string
+  blockedBy?: string
+}
+
 /**
  * Everything one seller's page needs, in one answer.
  *
@@ -308,6 +318,7 @@ export const api = {
    * Refuse a buyer's number - no sign-in, no orders - or lift it. Closing
    * her account is not a ban; this is. The reason is required to block.
    */
+  blockedBuyers: () => get<{ buyers: BlockedBuyer[] }>('/admin/customers/blocked'),
   blockCustomer: (body: { phone: string; blocked: boolean; reason?: string }) =>
     post<{ customer: { id: string; blocked?: boolean } }>('/admin/customers/block', body),
 

@@ -18,7 +18,7 @@ import { adminCloseCustomer, adminCloseSeller, restoreSeller } from '../db/accou
 import { recordAuthEvent } from '../auth/events.js'
 import { hashIp, maskPhone } from '../auth/crypto.js'
 import { closeReports, openReportsFor, reportedBuyers, reportsBySeller } from '../db/reports.js'
-import { blockCustomer } from '../db/customers.js'
+import { blockCustomer, blockedBuyers } from '../db/customers.js'
 import { revokeAllForUser } from '../auth/sessions.js'
 
 /**
@@ -786,6 +786,11 @@ adminRouter.post('/sellers/:id/restore', (req, res) => {
 adminRouter.get('/customers/reported', (_req, res) => {
   const buyers = reportedBuyers(getDb())
   res.json({ buyers, reportedCount: buyers.length })
+})
+
+/** Every blocked number, reported or typed in, so a block can be found and lifted. */
+adminRouter.get('/customers/blocked', (_req, res) => {
+  res.json({ buyers: blockedBuyers(getDb()) })
 })
 
 adminRouter.post('/customers/:id/clear-reports', (req, res) => {
