@@ -3,7 +3,7 @@ import { UNDO_DAYS } from '@shared/accountClose.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { AppBar, Button, Card, LanguagePicker, Notice, SectionTitle } from '../../components/ui.js'
 import { IconCall, IconMail, IconWhatsapp } from '../../components/icons.js'
-import { GRIEVANCE_OFFICER, OPERATOR } from '../../legal/operator.js'
+import { COLLEGE_OFFICE, OPERATOR } from '../../legal/operator.js'
 import { SUPPORT_PHONE } from '../seller/Misc.js'
 
 /**
@@ -89,11 +89,11 @@ export default function DeleteAccount() {
           <div style={{ marginTop: 'var(--s3)' }}>
             <a
               className="btn btn--ghost"
-              href={`mailto:${GRIEVANCE_OFFICER.email}?subject=${encodeURIComponent(t('del.emailSubject'))}&body=${encodeURIComponent(`${t('del.emailBody')} `)}`}
+              href={`mailto:${COLLEGE_OFFICE.email}?subject=${encodeURIComponent(t('del.emailSubject'))}&body=${encodeURIComponent(`${t('del.emailBody')} `)}`}
             >
               <IconMail aria-hidden="true" /> {t('del.email')}
             </a>
-            <div className="small dim" style={{ marginTop: 'var(--s2)' }}>{GRIEVANCE_OFFICER.email}</div>
+            <div className="small dim" style={{ marginTop: 'var(--s2)' }}>{COLLEGE_OFFICE.email}</div>
           </div>
         </Card>
 

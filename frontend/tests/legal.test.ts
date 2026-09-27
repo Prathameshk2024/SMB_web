@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LEGAL, DOC_IDS } from '../src/legal/index.js'
-import { GRIEVANCE_OFFICER, OPERATOR } from '../src/legal/operator.js'
+import { COLLEGE_OFFICE, GRIEVANCE_OFFICER, OPERATOR } from '../src/legal/operator.js'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -58,10 +58,16 @@ test('the grievance page names the operator and a reachable officer in both lang
   }
 })
 
-test('the officer\'s phone is the same desk the app\'s call buttons ring', () => {
-  // Two numbers for one desk is how one of them stops being answered.
+test('the app\'s call buttons ring the college office the policy names', () => {
+  // Two numbers for one desk is how one of them stops being answered. The
+  // grievance officer has her own contact; everyday help goes to the office.
   // Read from the source: importing the screen would pull in its images.
   const misc = readFileSync(join(import.meta.dirname, '..', 'src', 'screens', 'seller', 'Misc.tsx'), 'utf8')
   const supportPhone = misc.match(/SUPPORT_PHONE = '(\d+)'/)?.[1]
-  assert.equal(GRIEVANCE_OFFICER.phone, supportPhone)
+  assert.equal(COLLEGE_OFFICE.phone, supportPhone)
+  for (const lang of ['mr', 'en'] as const) {
+    const text = JSON.stringify(LEGAL[lang])
+    assert.ok(text.includes(COLLEGE_OFFICE.phone), `${lang}: office phone`)
+    assert.ok(text.includes(COLLEGE_OFFICE.email), `${lang}: office email`)
+  }
 })

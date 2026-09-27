@@ -3,7 +3,7 @@ import { RENEW_REMINDER_DAYS } from '@shared/subscription.js'
 import { REVIEW_WINDOW_DAYS } from '@shared/review.js'
 import { UNDO_DAYS } from '@shared/accountClose.js'
 import {
-  COURTS, FEE_REFUND_WORKING_DAYS, GRIEVANCE_ACK_HOURS, GRIEVANCE_OFFICER,
+  COLLEGE_OFFICE, COURTS, FEE_REFUND_WORKING_DAYS, GRIEVANCE_ACK_HOURS, GRIEVANCE_OFFICER,
   GRIEVANCE_RESOLVE_DAYS, OPERATOR, RETURN_REPORT_HOURS, SECURITY_LOG_DAYS,
 } from './operator.js'
 import type { LegalSet } from './types.js'
@@ -168,7 +168,7 @@ export const mr: LegalSet = {
         heading: 'खाते कसे बंद करायचे',
         body: [
           'कोणत्याही ब्राउझरमध्ये आमच्या संकेतस्थळावर, किंवा ॲपमध्ये: लॉगिन करा, माझी माहिती उघडा आणि अगदी खाली "माझे खाते कायमचे बंद करा" दाबा.',
-          `फोन हरवल्यामुळे किंवा OTP न आल्यामुळे लॉगिन करता येत नसेल तर: आमच्या संकेतस्थळावरील "खाते बंद करा" हे पान उघडा (मुख्य पानाच्या तळाशी दुवा आहे), किंवा ${GRIEVANCE_OFFICER.phone} वर फोन किंवा व्हॉट्सॲप करा, किंवा ${GRIEVANCE_OFFICER.email} वर ईमेल करा, आणि तुमचा नोंदणी केलेला मोबाइल नंबर सांगा. खाते तुमचेच आहे याची खात्री करण्यासाठी आम्ही तुम्हाला संपर्क करू, आणि मगच ते बंद करू.`,
+          `फोन हरवल्यामुळे किंवा OTP न आल्यामुळे लॉगिन करता येत नसेल तर: आमच्या संकेतस्थळावरील "खाते बंद करा" हे पान उघडा (मुख्य पानाच्या तळाशी दुवा आहे), किंवा महाविद्यालयाच्या कार्यालयाला ${COLLEGE_OFFICE.phone} वर फोन किंवा व्हॉट्सॲप करा, किंवा ${COLLEGE_OFFICE.email} वर ईमेल करा, आणि तुमचा नोंदणी केलेला मोबाइल नंबर सांगा. खाते तुमचेच आहे याची खात्री करण्यासाठी आम्ही तुम्हाला संपर्क करू, आणि मगच ते बंद करू.`,
           'एखादे ऑर्डर अजून चालू असेल तर ते पूर्ण होईपर्यंत किंवा रद्द होईपर्यंत खाते बंद करता येत नाही, म्हणजे कोणीही डिलिव्हरीची किंवा पैशांची वाट पाहत अडकून राहत नाही.',
         ],
       },
@@ -517,7 +517,10 @@ export const mr: LegalSet = {
       {
         id: 'operator',
         heading: 'हा बाजार कोण चालवते',
-        body: [`${OPERATOR.nameMr}, ${OPERATOR.addressMr}.`],
+        body: [
+          `${OPERATOR.nameMr}, ${OPERATOR.addressMr}.`,
+          `ऑर्डर, भरणा किंवा खात्याबद्दल मदतीसाठी महाविद्यालयाच्या कार्यालयाशी संपर्क करा: फोन आणि व्हॉट्सॲप ${COLLEGE_OFFICE.phone}, ईमेल ${COLLEGE_OFFICE.email}.`,
+        ],
       },
       {
         id: 'officer',

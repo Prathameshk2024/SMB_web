@@ -3,7 +3,7 @@ import { RENEW_REMINDER_DAYS } from '@shared/subscription.js'
 import { REVIEW_WINDOW_DAYS } from '@shared/review.js'
 import { UNDO_DAYS } from '@shared/accountClose.js'
 import {
-  COURTS, FEE_REFUND_WORKING_DAYS, GRIEVANCE_ACK_HOURS, GRIEVANCE_OFFICER,
+  COLLEGE_OFFICE, COURTS, FEE_REFUND_WORKING_DAYS, GRIEVANCE_ACK_HOURS, GRIEVANCE_OFFICER,
   GRIEVANCE_RESOLVE_DAYS, OPERATOR, RETURN_REPORT_HOURS, SECURITY_LOG_DAYS,
 } from './operator.js'
 import type { LegalSet } from './types.js'
@@ -170,7 +170,7 @@ export const en: LegalSet = {
         heading: 'How to delete your account',
         body: [
           'On our website in any browser, or in the app: sign in, open My Profile and tap "Delete my account" at the very bottom.',
-          `If you cannot sign in, because the phone is lost or the OTP does not arrive: open the "Delete your account" page on our website (linked at the bottom of the home page), or phone or WhatsApp ${GRIEVANCE_OFFICER.phone}, or email ${GRIEVANCE_OFFICER.email}, with the mobile number you registered with. We will contact you to make sure the account is yours before we delete it.`,
+          `If you cannot sign in, because the phone is lost or the OTP does not arrive: open the "Delete your account" page on our website (linked at the bottom of the home page), or phone or WhatsApp the college office on ${COLLEGE_OFFICE.phone}, or email ${COLLEGE_OFFICE.email}, with the mobile number you registered with. We will contact you to make sure the account is yours before we delete it.`,
           'An account with an order still in progress cannot be deleted until that order is finished or cancelled, so that nobody is left waiting for a delivery or a payment.',
         ],
       },
@@ -519,7 +519,10 @@ export const en: LegalSet = {
       {
         id: 'operator',
         heading: 'Who runs this market',
-        body: [`${OPERATOR.nameEn}, ${OPERATOR.addressEn}.`],
+        body: [
+          `${OPERATOR.nameEn}, ${OPERATOR.addressEn}.`,
+          `For help with an order, a payment or your account, contact the college office: phone and WhatsApp ${COLLEGE_OFFICE.phone}, email ${COLLEGE_OFFICE.email}.`,
+        ],
       },
       {
         id: 'officer',
