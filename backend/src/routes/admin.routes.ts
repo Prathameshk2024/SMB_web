@@ -7,7 +7,7 @@ import { summarizeReviews } from '@shared/review.js'
 import {
   SUBSCRIPTION_MONTHS, addMonths, canSellNow, subscriptionState, subscriptionView,
 } from '@shared/subscription.js'
-import { applyApprovedPayment } from '../db/subscription.js'
+import { applyApprovedPayment, recordOutsidePayment } from '../db/subscription.js'
 import { getDb, save } from '../db/store.js'
 import { documentCount, startsWithinFreeReads } from '../db/firestore.js'
 import { sellerStatusAfterReject } from '../db/payments.js'
@@ -244,6 +244,23 @@ adminRouter.post('/payments/:id/reject', (req, res) => {
   }
   save()
   res.json({ payment })
+})
+
+/** Money taken at the desk or by a coordinator - the APK has no pay screen. */
+adminRouter.post('/sellers/:id/record-payment', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+  const result = recordOutsidePayment(db, seller, req.body ?? {}, verifierName(db, req))
+  if ('status' in result) {
+    res.status(result.status).json({ error: result.error, messageMr: result.messageMr })
+    return
+  }
+  save()
+  res.status(201).json({ payment: result.payment, seller })
 })
 
 /** Goodwill, a trainee batch, a demo account. */

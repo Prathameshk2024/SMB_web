@@ -380,7 +380,7 @@ export const en: LegalSet = {
               `Your shop stays open for ${PLAN.months} months from the day the college approves your payment.`,
               `Renewal is ₹${PLAN.price} for the whole shop, however many packs you have, and can be paid from ${RENEW_REMINDER_DAYS} days before the end. A renewal paid early is added to the end date, so you lose no days.`,
               'If every place is full, you can buy another pack. It adds places and does not change the end date.',
-              'You pay by UPI to the college\'s account shown in the app, then send a screenshot of the payment, the time you paid and the UTR. College staff check it against the bank statement before approving.',
+              'The fee is paid to the college directly. College staff check every payment against the bank statement or their receipt before approving it.',
               `Once approved, the fee is not refunded, including if you later delete your account. If the college rejects your payment, the money is returned to the account it came from within ${FEE_REFUND_WORKING_DAYS} working days.`,
             ],
           },

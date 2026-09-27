@@ -495,6 +495,8 @@ export interface Category {
 
 export type PaymentApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
+export type OutsidePaymentMethod = 'CASH' | 'UPI' | 'OTHER'
+
 export interface SubscriptionPayment {
   id: string
   /**
@@ -502,6 +504,14 @@ export interface SubscriptionPayment {
    * everything submitted before renewals existed, which were all packs.
    */
   kind?: 'PACK' | 'RENEWAL'
+  /**
+   * Set only on a payment staff recorded by hand - cash at the desk, UPI
+   * straight to the college - because the APK takes no payment of its own.
+   * Absent means she sent it from the website's payment screen.
+   */
+  method?: OutsidePaymentMethod
+  /** Staff's own words on a recorded payment: the receipt book page, who took it. */
+  note?: string
   /** The shop's end date this approval left her with - the renewal history an admin reads. */
   termEndsAt?: string
   sellerId: string

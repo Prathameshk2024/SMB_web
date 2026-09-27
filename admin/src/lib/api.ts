@@ -275,6 +275,10 @@ export const api = {
 
   sellerDetail: (id: string) => get<SellerDetail>(`/admin/sellers/${id}`),
 
+  recordPayment: (id: string, body: {
+    kind: 'PACK' | 'RENEWAL'; method: 'CASH' | 'UPI' | 'OTHER'; paidAt: string; utr?: string; note?: string
+  }) => post<{ seller: Seller }>(`/admin/sellers/${id}/record-payment`, body),
+
   grantSlots: (id: string, packs: number) =>
     post<{ seller: Seller }>(`/admin/sellers/${id}/grant-slots`, { packs }),
 

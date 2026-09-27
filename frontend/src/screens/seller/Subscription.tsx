@@ -10,6 +10,7 @@ import PhotoPicker from '../../components/PhotoPicker.js'
 import { PaySteps } from '../../components/PayFromPhone.js'
 import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
 import { shortDate } from '../../lib/notifications.js'
+import { inApk } from '../../lib/inApk.js'
 import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
 import {
   AppBar, Button, Card, CopyValue, EmptyState, Field, Loading, Notice,
@@ -26,6 +27,54 @@ import {
 
 /** What the ₹50 is for, in the UPI note her bank statement keeps. */
 const PLAN_NOTE = 'subscription'
+
+const APK = inApk()
+
+/**
+ * THE SAME SCREEN INSIDE THE APK: WHERE SHE STANDS, AND NOTHING TO BUY.
+ *
+ * Google Play allows no payment for slots or time except its own billing, and
+ * no link or flow towards another one. So this says whether her shop is on,
+ * how many slots she is using and until when - the questions she actually
+ * has - and staff switch things on when she pays the desk or a coordinator.
+ */
+function ShopRegistration({ data }: { data: Awaited<ReturnType<typeof api.subscription>> }) {
+  const t = useT()
+  const nav = useNavigate()
+  const { slots, subscription } = data
+  const switchedOn = data.status === 'ACTIVE' || slots.total > 0
+  const expired = subscription?.state === 'expired'
+
+  return (
+    <>
+      <AppBar title={t('pay.title')} backTo="/seller" />
+      <div className="screen stack">
+        {!switchedOn ? (
+          <Card>
+            <EmptyState icon={IconWaiting} title={t('act.waitTitle')} body={t('act.waitBody')} />
+          </Card>
+        ) : (
+          <>
+            <SubscriptionNotice view={subscription} button={false} />
+            <Card>
+              <div className="h3">{t('biz.slotsUsed', { used: slots.used, total: slots.total })}</div>
+              {slots.isFull && <p className="muted">{t('biz.slotsFull')}</p>}
+              <SubscriptionLine view={subscription} />
+              {!expired && slots.left > 0 && (
+                <div style={{ marginTop: 'var(--s3)' }}>
+                  <Button onClick={() => nav('/seller/upload')}>{t('prod.add')}</Button>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+        <Button variant="ghost" onClick={() => nav('/seller/help')}>
+          <IconWhatsapp aria-hidden="true" /> {t('wait.contactHelp')}
+        </Button>
+      </div>
+    </>
+  )
+}
 
 export function Subscription() {
   const t = useT()
@@ -77,6 +126,9 @@ export function Subscription() {
   if (!data) {
     return <><AppBar title={t('pay.title')} backTo="/seller" /><div className="screen"><Loading /></div></>
   }
+
+  // No price and no pay form inside the APK - see lib/inApk.ts.
+  if (APK) return <ShopRegistration data={data} />
 
   const { account, plan, slots, payments, payable, subscription } = data
   /**
@@ -334,6 +386,10 @@ export function PaymentWaiting() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, settled])
+
+  // A payment sent from the website still waits in the queue, but the APK
+  // shows where her shop stands rather than what she paid.
+  if (APK) return <Navigate to="/seller/subscription" replace />
 
   if (loading || !data) {
     return <div className="app-shell"><div className="screen"><Loading /></div></div>

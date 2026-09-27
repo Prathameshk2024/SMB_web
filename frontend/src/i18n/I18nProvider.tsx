@@ -3,6 +3,7 @@ import {
   type ReactNode,
 } from 'react'
 import { dictionaries, LANGS, type LangCode } from './strings.js'
+import { inApk } from '../lib/inApk.js'
 
 interface I18nValue {
   lang: LangCode
@@ -12,6 +13,20 @@ interface I18nValue {
 }
 
 const I18nContext = createContext<I18nValue | null>(null)
+
+/** Read once: a page does not move between the APK and a browser. */
+const APK = inApk()
+
+/**
+ * Inside the APK a key with a `.apk` twin reads the twin - the same sentence
+ * with no price and no way to pay in it (lib/inApk.ts says why). Every
+ * screen, notice and updates-list row gets it without knowing it exists.
+ */
+export function lookup(lang: LangCode, key: string, apk = APK): string {
+  const d = dictionaries[lang]
+  const twin = apk ? d[`${key}.apk`] ?? dictionaries.en[`${key}.apk`] : undefined
+  return twin ?? d[key] ?? dictionaries.en[key] ?? key
+}
 const STORAGE_KEY = 'wb.lang'
 
 export function I18nProvider({ children }: { children: ReactNode }) {
@@ -39,7 +54,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   /** t('biz.slotsUsed', { used: 3, total: 5 }) */
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
-      const raw = dictionaries[lang][key] ?? dictionaries.en[key] ?? key
+      const raw = lookup(lang, key)
       if (!vars) return raw
       return Object.keys(vars).reduce(
         (acc, k) => acc.replaceAll(`{${k}}`, String(vars[k])),

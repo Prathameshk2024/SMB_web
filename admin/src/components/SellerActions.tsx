@@ -17,7 +17,16 @@ import { CloseFields, EMPTY_CLOSE, closeBody, openOrdersText, type CloseFieldsVa
  * drift, and the copy that drifts is the one that stops saying "her products
  * will disappear from the app".
  */
-type Action = 'grant' | 'revoke' | 'block' | 'close' | 'restore' | null
+type Action = 'record' | 'grant' | 'revoke' | 'block' | 'close' | 'restore' | null
+
+type Method = 'CASH' | 'UPI' | 'OTHER'
+
+/** `<input type="datetime-local">` wants local time with no zone. */
+function localNow(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export function SellerActions({
   seller, onDone,
@@ -34,6 +43,11 @@ export function SellerActions({
   const [blockReason, setBlockReason] = useState('')
   const [closeFields, setCloseFields] = useState<CloseFieldsValue>(EMPTY_CLOSE)
   const [digits, setDigits] = useState('')
+  const [kind, setKind] = useState<'PACK' | 'RENEWAL'>('PACK')
+  const [method, setMethod] = useState<Method>('CASH')
+  const [paidAt, setPaidAt] = useState(localNow)
+  const [utr, setUtr] = useState('')
+  const [note, setNote] = useState('')
 
   const blocked = seller.status === 'BLOCKED'
   /** Inside the seven days: still undoable. */
@@ -49,6 +63,13 @@ export function SellerActions({
     setBlockReason('')
     setCloseFields(EMPTY_CLOSE)
     setDigits('')
+    // A shop in its last week, or paused, is here to renew; anyone else for slots.
+    const due = seller.subscription?.state === 'expiring' || seller.subscription?.state === 'expired'
+    setKind(due ? 'RENEWAL' : 'PACK')
+    setMethod('CASH')
+    setPaidAt(localNow())
+    setUtr('')
+    setNote('')
     c.ask()
   }
 
@@ -76,6 +97,11 @@ export function SellerActions({
   return (
     <>
       <div className="row wrap">
+        {!closedForGood && seller.status !== 'CLOSED' && (
+          <Button variant="quiet" small disabled={c.open} onClick={() => ask('record')}>
+            ₹ {t('se.record')}
+          </Button>
+        )}
         <Button variant="quiet" small disabled={c.open} onClick={() => ask('grant')}>
           + {t('se.grantSlots')}
         </Button>
@@ -147,6 +173,57 @@ export function SellerActions({
         onCancel={close}
         onConfirm={() => void run(() => api.restoreSeller(seller.id))}
       />
+
+      {/* ---- record a payment taken outside the app ---- */}
+      <Confirm
+        open={c.open && action === 'record'}
+        title={t('se.recordTitle')}
+        description={t('se.recordDesc', { price: PLAN.price, slots: slotsPerPack })}
+        confirmLabel={t('se.recordConfirm')}
+        busy={c.busy}
+        error={c.error}
+        onCancel={close}
+        onConfirm={() => {
+          const at = new Date(paidAt)
+          void run(() => api.recordPayment(seller.id, {
+            kind,
+            method,
+            paidAt: Number.isNaN(at.getTime()) ? '' : at.toISOString(),
+            utr: utr.trim() || undefined,
+            note: note.trim() || undefined,
+          }))
+        }}
+      >
+        <div className="stack-sm" style={{ marginTop: 10 }}>
+          <label>
+            <span className="field__l">{t('se.recordKind')}</span>
+            <select className="select" value={kind} onChange={(e) => setKind(e.target.value as 'PACK' | 'RENEWAL')}>
+              <option value="PACK">{t('pay.kind.PACK')}</option>
+              <option value="RENEWAL">{t('pay.kind.RENEWAL')}</option>
+            </select>
+          </label>
+          <label>
+            <span className="field__l">{t('se.recordMethod')}</span>
+            <select className="select" value={method} onChange={(e) => setMethod(e.target.value as Method)}>
+              <option value="CASH">{t('se.method.CASH')}</option>
+              <option value="UPI">{t('se.method.UPI')}</option>
+              <option value="OTHER">{t('se.method.OTHER')}</option>
+            </select>
+          </label>
+          <label>
+            <span className="field__l">{t('se.recordPaidAt')}</span>
+            <input className="input" type="datetime-local" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+          </label>
+          <label>
+            <span className="field__l">{t('se.recordUtr')}</span>
+            <input className="input mono" inputMode="numeric" value={utr} onChange={(e) => setUtr(e.target.value)} />
+          </label>
+          <label>
+            <span className="field__l">{t('se.recordNote')}</span>
+            <input className="input" maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+        </div>
+      </Confirm>
 
       {/* ---- grant ---- */}
       <Confirm

@@ -15,13 +15,17 @@ import { Button, Notice } from './ui.js'
  *
  * `view` comes from the API, decided on the server's clock.
  */
-export function SubscriptionNotice({ view }: { view?: SubscriptionView | null }) {
+export function SubscriptionNotice({ view, button = true }: {
+  view?: SubscriptionView | null
+  /** Off on the screen the button would open. */
+  button?: boolean
+}) {
   const t = useT()
   const nav = useNavigate()
   if (!view?.endsAt) return null
 
   const date = shortDate(view.endsAt)
-  const renew = (
+  const renew = button && (
     <div style={{ marginTop: 'var(--s3)' }}>
       <Button size="sm" onClick={() => nav('/seller/subscription')}>{t('sub.renewButton')}</Button>
     </div>
