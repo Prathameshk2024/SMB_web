@@ -77,6 +77,8 @@ export type AuthEventType =
   | 'register.seller'
   | 'register.customer'
   | 'ratelimit'
+  /** A blocked buyer's number passed the OTP and was refused a session anyway. */
+  | 'blocked'
 
 /**
  * One line of the audit trail.

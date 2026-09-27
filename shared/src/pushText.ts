@@ -30,7 +30,8 @@ export const PUSH_LINES: Record<PushLang, Record<string, string>> = {
     'notif.cus.CANCELLED': 'तुमचे ऑर्डर रद्द झाले',
     'notif.adm.SLOTS_GRANTED': 'तुम्हाला {n} नवीन जागा मिळाल्या आहेत',
     'notif.adm.SLOTS_REVOKED': 'तुमच्या {n} जागा काढून घेतल्या आहेत',
-    'notif.adm.PAYMENT_APPROVED': 'तुमचा ₹50 चा भरणा मंजूर झाला — {n} जागा मिळाल्या',
+    // Pushes reach only the APK, so this is the APK's wording: no price.
+    'notif.adm.PAYMENT_APPROVED': 'तुमच्या दुकानाला {n} नवीन जागा मिळाल्या',
     'notif.adm.PAYMENT_REJECTED': 'तुमचा भरणा तपासणीत जुळला नाही',
     'notif.adm.BLOCKED': 'तुमचे दुकान सध्या बंद केले आहे',
     'notif.adm.UNBLOCKED': 'तुमचे दुकान पुन्हा सुरू झाले आहे',
@@ -53,7 +54,7 @@ export const PUSH_LINES: Record<PushLang, Record<string, string>> = {
     'notif.cus.CANCELLED': 'Your order was cancelled',
     'notif.adm.SLOTS_GRANTED': 'You have been given {n} more product slots',
     'notif.adm.SLOTS_REVOKED': '{n} product slots were taken back',
-    'notif.adm.PAYMENT_APPROVED': 'Your ₹50 payment was approved - {n} slots added',
+    'notif.adm.PAYMENT_APPROVED': 'Your shop has {n} new slots',
     'notif.adm.PAYMENT_REJECTED': 'Your payment could not be matched',
     'notif.adm.BLOCKED': 'Your shop has been closed for now',
     'notif.adm.UNBLOCKED': 'Your shop is open again',

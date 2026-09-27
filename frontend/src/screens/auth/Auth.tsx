@@ -14,6 +14,7 @@ import {
   AppBar, Button, Field, Notice, OtpInput, TextInput,
 } from '../../components/ui.js'
 import { IconNext } from '../../components/icons.js'
+import { ContinueNote } from '../../components/Policies.js'
 import { useToast } from '../../store/ToastContext.js'
 import {
   WIDGET_SESSION_LOST, forgetWidgetSession,
@@ -214,6 +215,11 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
             {busy ? t('common.loading') : t('onb.sendOtp')}
           </Button>
         )}
+
+        {/* A notice, not the agreement: that is asked at registration and on
+            the acceptance screen, where it is recorded. This is here so the
+            terms can be read before a phone number is given at all. */}
+        <ContinueNote />
       </div>
     </div>
   )
@@ -314,6 +320,15 @@ export function OtpScreen() {
       if (widgetEnabled && e instanceof ApiError && e.status === 401) {
         forgetWidgetSession()
         setErr(t('onb.otpSessionLost'))
+        return
+      }
+
+      // A number blocked for misuse passed the OTP and was refused after it.
+      // Telling her the code was wrong would send her round the keypad for
+      // ever; this says what happened and who to ask, in the screen's own
+      // language rather than the server's Marathi.
+      if (e instanceof ApiError && e.status === 403 && e.message === 'Blocked') {
+        setErr(t('err.blocked'))
         return
       }
 

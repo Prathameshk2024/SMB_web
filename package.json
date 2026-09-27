@@ -19,6 +19,7 @@
     "test": "npm --workspace @shantai/backend run test && npm --workspace @shantai/frontend run test && npm --workspace @shantai/admin run test",
     "backfill:customers": "npm --workspace @shantai/backend run backfill:customers --",
     "purge:demo": "npm --workspace @shantai/backend run purge:demo --",
+    "scrub:auth-ips": "npm --workspace @shantai/backend run scrub:auth-ips --",
     "dev:admin": "npm --workspace @shantai/admin run dev",
     "dev:all": "concurrently -n api,web,admin -c green,cyan,magenta \"npm:dev:api\" \"npm:dev:web\" \"npm:dev:admin\"",
     "admin:users": "npm --workspace @shantai/backend run admin:users --",

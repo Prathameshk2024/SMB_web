@@ -193,6 +193,8 @@ function PaymentCard(
             {/* The ordinary case: submit tapped twice on a slow connection.
                 Flagging it stops a duplicate being approved as a second pack. */}
             {payment.duplicateUtr && <Pill tone="danger">{t('pay.duplicate')}</Pill>}
+            {/* Taken at the desk and entered by staff: no screenshot is missing. */}
+            {payment.method && <Pill tone="info">{t('pay.recorded')} · {t(`se.method.${payment.method}`)}</Pill>}
           </div>
           <div className="small dim">
             {rupees(payment.amount)} · <span className="mono">{payment.phone}</span>
@@ -214,7 +216,7 @@ function PaymentCard(
             </div>
           </div>
           <div className="row wrap" style={{ gap: 6 }}>
-            {!payment.screenshotUrl && <Pill tone="danger">{t('pay.noScreenshot')}</Pill>}
+            {!payment.screenshotUrl && !payment.method && <Pill tone="danger">{t('pay.noScreenshot')}</Pill>}
             {!payment.paidAt && <Pill tone="warn">{t('pay.noPaidAt')}</Pill>}
             {paidLongBefore && <Pill tone="warn">{t('pay.paidLongBefore')}</Pill>}
           </div>
@@ -230,6 +232,7 @@ function PaymentCard(
             {t('pay.submitted')} {when(payment.submittedAt)}
             {payment.verifiedBy && ` · ${t('pay.verifiedBy')} ${t('c.by')} ${payment.verifiedBy}`}
           </div>
+          {payment.note && <div className="small dim">{payment.note}</div>}
           {payment.rejectReason && (
             <div className="small" style={{ color: 'var(--danger)' }}>
               {t('c.reason')}: {payment.rejectReason}

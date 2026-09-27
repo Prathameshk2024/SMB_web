@@ -8,6 +8,7 @@ import {
 import { publicSeller } from '../db/publicSeller.js'
 import { canSellNow } from '@shared/subscription.js'
 import { requireRole } from '../middleware/auth.js'
+import { demoHidden } from '../demo.js'
 
 /** Public, unauthenticated. This is what a shopper and a scanned QR both hit. */
 export const catalogRouter: Router = Router()
@@ -47,7 +48,13 @@ catalogRouter.get('/products', (req, res) => {
 
   const sellerById = new Map(db.sellers.map((s) => [s.id, s]))
 
-  let list = db.products.filter((p) => publiclyVisible(p, sellerById.get(p.sellerId)))
+  // The demo shop for Play's reviewers is on the shelf for the demo buyer
+  // alone - see demo.ts. Every other rule about what is public is
+  // `publiclyVisible`.
+  let list = db.products.filter((p) => {
+    const s = sellerById.get(p.sellerId)
+    return publiclyVisible(p, s) && !demoHidden(s, req.auth)
+  })
 
   if (categoryId) list = list.filter((p) => p.categoryId === categoryId)
 
@@ -102,7 +109,7 @@ catalogRouter.get('/products/:id', (req, res) => {
 
   // 404, not 403, and the same 404 whether the id is unknown or merely not
   // public: telling the difference confirms that a hidden listing exists.
-  if (!publiclyVisible(product, seller)) {
+  if (!publiclyVisible(product, seller) || demoHidden(seller, req.auth)) {
     res.status(404).json({ error: 'Product not found', messageMr: 'हे उत्पादन सापडले नाही' })
     return
   }
@@ -125,7 +132,7 @@ catalogRouter.get('/products/:id/reviews', (req, res) => {
   const db = getDb()
   const product = db.products.find((p) => p.id === req.params.id)
   const seller = product && db.sellers.find((s) => s.id === product.sellerId)
-  if (!publiclyVisible(product, seller)) {
+  if (!publiclyVisible(product, seller) || demoHidden(seller, req.auth)) {
     res.status(404).json({ error: 'Product not found', messageMr: 'हे उत्पादन सापडले नाही' })
     return
   }
@@ -145,7 +152,7 @@ catalogRouter.post('/share/:slug/scan', (req, res) => {
   const db = getDb()
   const seller = db.sellers.find((s) => s.shopSlug === req.params.slug)
   if (!seller) {
-    res.status(404).json({ error: 'Shop not found' })
+    res.status(404).json({ error: 'Shop not found', messageMr: 'हे दुकान सापडले नाही' })
     return
   }
   seller.qrScans += 1
@@ -181,7 +188,7 @@ catalogRouter.post('/share/:slug/scan', (req, res) => {
 catalogRouter.get('/sellers/:id/contact', requireRole('customer'), (req, res) => {
   const db = getDb()
   const seller = db.sellers.find((s) => s.id === req.params.id)
-  if (!seller || !canSellNow(seller) || !seller.isOpen) {
+  if (!seller || !canSellNow(seller) || !seller.isOpen || demoHidden(seller, req.auth)) {
     res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
@@ -202,7 +209,7 @@ catalogRouter.get('/serviceability', (req, res) => {
 
   const db = getDb()
   const sellers = db.sellers.filter(
-    (s) => canSellNow(s) && s.isOpen && s.pincodes.includes(pincode),
+    (s) => canSellNow(s) && s.isOpen && s.pincodes.includes(pincode) && !demoHidden(s, req.auth),
   )
   const sellerIds = new Set(sellers.map((s) => s.id))
   const productCount = db.products.filter(
@@ -219,7 +226,7 @@ catalogRouter.get('/serviceability', (req, res) => {
     nearbyVillages: [
       ...new Set(
         db.sellers
-          .filter((s) => canSellNow(s) && s.isOpen)
+          .filter((s) => canSellNow(s) && s.isOpen && !demoHidden(s, req.auth))
           .flatMap((s) => s.pincodes.map((pc) => `${s.village} (${pc})`)),
       ),
     ].slice(0, 6),

@@ -352,6 +352,80 @@ export function buyersForSeller(db: Db, sellerId: string): SellerBuyer[] {
   return [...byCustomer.values()].sort((a, b) => b.lastOrderAt.localeCompare(a.lastOrderAt))
 }
 
+/* ------------------------------------------------------------------ */
+/* Blocking a buyer                                                    */
+/* ------------------------------------------------------------------ */
+
+export type BlockResult =
+  | { ok: true; customer: Customer }
+  | { ok: false; status: number; error: string; messageMr: string; fields?: Record<string, string> }
+
+/** What a blocked number is told, at sign-in and at checkout. No reason: that is the desk's record. */
+export const BLOCKED_MR = 'हा नंबर बाजारात बंद केला आहे. मदतीसाठी बाजाराच्या कार्यालयाशी संपर्क करा.'
+
+/**
+ * BLOCK, OR UNBLOCK, A BUYER BY HER PHONE NUMBER.
+ *
+ * Closing her account is not a ban: the row is rebuilt from her number the
+ * moment she signs in again, and a buyer who orders and never opens the
+ * door can do it again next week. This is the ban. It is keyed on the phone
+ * because the phone IS the account - the id is derived from it - so the row
+ * is created if she has none yet, and it survives a close (`closeCustomer`
+ * keeps a blocked row, emptied of everything but the number).
+ *
+ * A reason is required and kept, as it is for hiding a review: refusing
+ * somebody a market is a judgement, and "who blocked her and why" has to be
+ * answerable months later. She is never shown it; the refusal she reads says
+ * only to contact the office, because a sentence written for the desk is not
+ * one written for her.
+ *
+ * Every session she holds is revoked at once. The middleware reads identity
+ * off the session row, so a revoked row is a token that no longer opens
+ * anything - which is what makes the block real on a phone already signed in.
+ */
+export function blockCustomer(
+  db: Db,
+  phone: string,
+  input: { blocked?: unknown; reason?: unknown },
+  by: string,
+  revokeSessions: (db: Db, userId: string, now: number) => unknown,
+  now = Date.now(),
+): BlockResult {
+  const digits = String(phone ?? '').replace(/\D/g, '')
+  if (digits.length !== 10) {
+    return { ok: false, status: 400, error: 'Type the 10-digit number', messageMr: '10 अंकी मोबाईल नंबर टाका' }
+  }
+  const blocked = input.blocked === true
+  const reason = typeof input.reason === 'string' ? input.reason.trim() : ''
+  if (blocked && !reason) {
+    return {
+      ok: false, status: 400, error: 'Blocking a buyer needs a reason',
+      messageMr: 'ग्राहक बंद करण्याचे कारण लिहा', fields: { reason: 'required' },
+    }
+  }
+
+  const customer = ensureCustomer(db, customerIdFor(digits), digits)
+  if (blocked) {
+    customer.blocked = true
+    customer.blockedAt = new Date(now).toISOString()
+    customer.blockReason = reason
+    customer.blockedBy = by
+    revokeSessions(db, customer.id, now)
+  } else {
+    delete customer.blocked
+    delete customer.blockedAt
+    delete customer.blockReason
+    delete customer.blockedBy
+  }
+  customer.updatedAt = new Date(now).toISOString()
+  return { ok: true, customer }
+}
+
+/** Read at sign-in and at checkout: a blocked number gets no session and places no order. */
+export function isCustomerBlocked(db: Db, customerId: string): boolean {
+  return !!findCustomer(db, customerId)?.blocked
+}
+
 export interface OrderCustomerIdUpdate {
   orderId: string
   from: string

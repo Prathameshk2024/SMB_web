@@ -9,6 +9,7 @@ import { closeReasonProblem, confirmProblem } from '@shared/accountClose.js'
 import { POLICY_REFUSED_MR, acceptNow, saidYes } from '@shared/legal.js'
 import { openOrdersForSeller, requestSellerClose, restoreSeller } from '../db/accountClose.js'
 import { screenshotProblem } from '../db/payments.js'
+import { ownImageProblem } from '../db/images.js'
 import { makeShopSlug, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import { computeReadiness, readinessBand, recomputeForSeller } from '@shared/readiness.js'
 import { getDb, newId, save } from '../db/store.js'
@@ -26,6 +27,7 @@ import { consumeTicket } from '../auth/tickets.js'
 import { recordAuthEvent } from '../auth/events.js'
 import { hashIp, maskPhone } from '../auth/crypto.js'
 import { hit, LIMITS } from '../auth/rateLimit.js'
+import { demoHidden } from '../demo.js'
 
 export const sellersRouter: Router = Router()
 
@@ -146,6 +148,10 @@ sellersRouter.post('/register', (req, res) => {
   const fssaiFault = fssaiProblem(b.fssai)
   if (fssaiFault) fields.fssai = fssaiFault
   if (b.age != null && (b.age < 18 || b.age > 90)) fields.age = 'वय 18 ते 90 दरम्यान असावे'
+  // Her bank's QR reaches every buyer at checkout; only one that came
+  // through the app's own picker is accepted (db/images.ts).
+  const qrFault = ownImageProblem(b.upiQrUrl, cloudinary, 'product')
+  if (qrFault) fields.upiQrUrl = qrFault
 
   if (Object.keys(fields).length) {
     res.status(400).json({ error: 'Validation failed', messageMr: 'माहिती तपासा', fields })
@@ -276,7 +282,7 @@ sellersRouter.get('/me', requireRole('seller'), (req, res) => {
   const db = getDb()
   const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)
   if (!seller) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
   const products = db.products.filter((p) => p.sellerId === seller.id)
@@ -310,7 +316,7 @@ sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
   const db = getDb()
   const i = db.sellers.findIndex((s) => s.id === req.auth!.sellerId)
   if (i < 0) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
 
@@ -344,6 +350,13 @@ sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
   // she sent makes sense. Same function the form runs, so the message under
   // the box is the same message either way.
   const fields = validateSellerProfile(patch)
+  // Her photo and her bank's QR both reach buyers. A URL is a URL, so only
+  // an image the app's own picker uploaded into this account is accepted -
+  // the same rule as the payment screenshot (db/images.ts).
+  for (const key of ['photo', 'upiQrUrl'] as const) {
+    const fault = key in patch ? ownImageProblem(patch[key], cloudinary, 'product') : null
+    if (fault) fields[key] = fault
+  }
   if (Object.keys(fields).length) {
     res.status(400).json({ error: 'Validation failed', messageMr: 'माहिती तपासा', fields })
     return
@@ -388,7 +401,7 @@ sellersRouter.post('/me/close', requireRole('seller'), (req, res) => {
   const db = getDb()
   const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)
   if (!seller) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
 
@@ -420,7 +433,7 @@ sellersRouter.post('/me/close', requireRole('seller'), (req, res) => {
   requestSellerClose(db, seller, { reason, note })
   recordAuthEvent(db, {
     type: 'session.end', subject: maskPhone(seller.phone), role: 'seller',
-    ip: callerIp(req), detail: 'account.close',
+    ip: hashIp(callerIp(req)), detail: 'account.close',
   })
   save()
   res.json({ ok: true, closingAt: seller.closingAt })
@@ -436,7 +449,7 @@ sellersRouter.post('/me/restore', requireRole('seller'), (req, res) => {
   const db = getDb()
   const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)
   if (!seller) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
   if (seller.status !== 'CLOSED' || !seller.closingAt) {
@@ -462,8 +475,9 @@ sellersRouter.get('/:id', (req, res) => {
   const seller = getDb().sellers.find((s) => s.id === req.params.id)
   // Same rule as /slug/:slug. A seller who has not been approved, or who has
   // been blocked, is not public - customers only ever see approved shops.
-  // A paused shop is not public either, until she renews.
-  if (!seller || !canSellNow(seller)) {
+  // A paused shop is not public either, until she renews. The demo shop is
+  // public to the demo buyer alone (demo.ts).
+  if (!seller || !canSellNow(seller) || demoHidden(seller, req.auth)) {
     res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
@@ -481,7 +495,7 @@ sellersRouter.get('/me/subscription', requireRole('seller'), (req, res) => {
   const sellerId = req.auth!.sellerId!
   const seller = db.sellers.find((s) => s.id === sellerId)
   if (!seller) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
   const products = db.products.filter((p) => p.sellerId === sellerId)
@@ -509,7 +523,7 @@ sellersRouter.post('/me/subscription/payment', requireRole('seller'), (req, res)
   const sellerId = req.auth!.sellerId!
   const seller = db.sellers.find((s) => s.id === sellerId)
   if (!seller) {
-    res.status(404).json({ error: 'Seller not found' })
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
     return
   }
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import type { AdminNotice, DigitalProfile, SubscriptionPayment } from '@shared/types.js'
 import { BAND_LABEL, MAX_SCORE, SELF_REPORTED_FACTORS } from '@shared/readiness.js'
@@ -12,8 +12,9 @@ import { ProductCard } from './Products.js'
 import { ReviewTable, SummaryText } from './Reviews.js'
 import { IconNo, IconProducts, IconYes } from '../components/icons.js'
 import {
-  Card, CopyValue, EmptyState, ErrorNote, Loading, Notice, Pill, SectionTitle, useAsync,
+  Button, Card, CopyValue, EmptyState, ErrorNote, Loading, Notice, Pill, SectionTitle, useAsync,
 } from '../components/ui.js'
+import { useToast } from '../store/ToastContext.js'
 
 /**
  * One woman's page.
@@ -146,10 +147,70 @@ function Identity({ detail, onDone }: { detail: Detail; onDone: () => void }) {
         </div>
       )}
 
+      {/* Closing or closed: say when, and on whose word, before any button. */}
+      {seller.status === 'CLOSED' && (
+        <div style={{ marginTop: 12 }}>
+          <Notice tone="warn">
+            {seller.closingAt
+              ? t('ac.closingOn', { when: when(seller.closingAt) })
+              : t('ac.erasedOn', { when: when(seller.closedAt ?? '') })}
+            {seller.closeNote ? ` — ${seller.closeNote}` : ''}
+          </Notice>
+        </div>
+      )}
+
       <div style={{ marginTop: 12 }}>
         <SellerActions seller={seller} onDone={onDone} />
       </div>
+
+      <ShopReports detail={detail} onDone={onDone} />
     </Card>
+  )
+}
+
+/**
+ * What buyers reported about the SHOP - not about a listing, which sits on
+ * the Products screen. A report changes nothing on its own, and closing them
+ * changes nothing either: the two things an admin can do about a shop are
+ * Block and Close, above, and this card says so.
+ */
+function ShopReports({ detail, onDone }: { detail: Detail; onDone: () => void }) {
+  const t = useT()
+  const { toast } = useToast()
+  const [busy, setBusy] = useState(false)
+  const reports = detail.seller.reports ?? []
+  if (reports.length === 0) return null
+
+  async function clear() {
+    setBusy(true)
+    try {
+      await api.clearSellerReports(detail.seller.id)
+      toast(t('rp.cleared'))
+      onDone()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="stack-sm" style={{ marginTop: 12 }}>
+      <div className="strong" style={{ color: 'var(--danger)' }}>
+        {t('rp.sellerCount', { n: reports.length })}
+      </div>
+      <ul className="reportlist">
+        {reports.map((r) => (
+          <li key={r.id}>
+            {t(`report.reason.${r.reason}`)}
+            {r.note && <> — {r.note}</>}
+            <span className="dim-2 small"> · {when(r.at)}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="small dim">{t('rp.sellerSub')}</div>
+      <div>
+        <Button variant="quiet" small disabled={busy} onClick={() => void clear()}>{t('rp.clear')}</Button>
+      </div>
+    </div>
   )
 }
 
@@ -260,6 +321,13 @@ function ShopSettings({ detail }: { detail: Detail }) {
         </Row>
         <Row label={t('sd.dispatch')}>{seller.dispatch}</Row>
         {seller.fssai && <Row label={t('sd.fssai')}>{seller.fssai}</Row>}
+        {/* The consent record the DPDP Act asks the college to be able to
+            show: which text she agreed to, and when. */}
+        <Row label={t('sd.policies')}>
+          {seller.acceptedPolicies
+            ? <><span className="mono">{seller.acceptedPolicies.version}</span> · {when(seller.acceptedPolicies.at)}</>
+            : t('sd.policiesNone')}
+        </Row>
         {/* The pincodes she delivers to. An order outside them is refused by
             the API, so this is the answer to "why can she not see my area". */}
         <Row label={t('sd.serves')}>

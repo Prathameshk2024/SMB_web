@@ -1,18 +1,13 @@
-import { useState } from 'react'
 import { useT } from '../../i18n/I18nProvider.js'
 
 /**
  * The college this project is run under.
  *
- * The photograph lives in `frontend/public/college.jpg` rather than being
- * imported: it is a real photo that gets swapped for a better one, and a
- * public-folder file can be replaced without a code change or a rebuild of the
- * bundle graph.
- *
- * Which is also why the image is allowed to be missing. `onError` drops it and
- * the two address lines carry the section on their own - a broken-image icon
- * on the landing page of a trust-building product is worse than no photo, and
- * the name and address are the part that actually has to be right.
+ * No photograph. There was a slot for `frontend/public/college.jpg`, but the
+ * file was never added, so every visit to the landing page asked for it and
+ * got a 404 before falling back to this. The name and address are the part
+ * that has to be right; a photo can come back as an imported asset once there
+ * is a real one to import.
  *
  * Both languages are shown at once, not switched: the Marathi line is what a
  * villager reads and the English line is what goes into a form or a search, so
@@ -20,19 +15,9 @@ import { useT } from '../../i18n/I18nProvider.js'
  */
 export default function CollegeCard() {
   const t = useT()
-  const [hasImage, setHasImage] = useState(true)
 
   return (
-    <div className={`college ${hasImage ? '' : 'college--noimg'}`}>
-      {hasImage && (
-        <img
-          className="college__img"
-          src={`${import.meta.env.BASE_URL}college.jpg`}
-          alt={t('lp.collegeAlt')}
-          loading="lazy"
-          onError={() => setHasImage(false)}
-        />
-      )}
+    <div className="college college--noimg">
 
       <div className="college__body">
         <p className="college__mr" lang="mr">{t('lp.collegeMr')}</p>

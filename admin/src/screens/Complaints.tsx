@@ -6,6 +6,8 @@ import { api } from '../lib/api.js'
 import { when } from '../lib/format.js'
 import { TopBar } from '../components/Shell.js'
 import { IconComplaints } from '../components/icons.js'
+import { BuyerCloseCard } from '../components/CloseAccount.js'
+import { BlockByNumberCard, ReportedBuyers } from '../components/Buyers.js'
 import { Button, Card, EmptyState, ErrorNote, Loading, Pill, useAsync } from '../components/ui.js'
 import { useToast } from '../store/ToastContext.js'
 
@@ -41,6 +43,13 @@ export function Complaints() {
             </Button>
           ))}
         </div>
+
+        {/* A buyer has no page of her own, so everything about buyers is
+            here: what sellers reported, the block, and the close that
+            deletion requests by phone or email end in. */}
+        <ReportedBuyers />
+        <BlockByNumberCard />
+        <BuyerCloseCard />
 
         <ErrorNote error={error} />
 

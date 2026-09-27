@@ -114,20 +114,37 @@ const SNAPSHOT = /^firestore-(\d{4})-(\d{2})-(\d{2})T\d{2}-\d{2}\.json(\.gz)?$/
 
 /**
  * Which local copies to delete: everything older than `keepDays`, except the
- * earliest copy of each calendar month, which is kept for good.
+ * earliest copy of each calendar month, which is kept for `keepMonths`.
  *
  * Every day of the last month, because damage is usually noticed within days
  * and the day before it is the copy wanted. One per month after that, because
  * "what did the shop look like in March" is a question a funder's report will
  * ask, and a year of monthly copies costs less than a week of daily ones.
  *
+ * And not for good. Each copy holds every phone number and address in the
+ * database on that day, including those of people who have since deleted
+ * their accounts; the privacy policy promises backups are kept for a
+ * limited time, and a monthly file kept for ever is not a limited time. The
+ * default is twelve months - a year of monthly copies is what a funder's
+ * report needs, and after a year the numbers in it are somebody else's.
+ *
  * Names this function does not recognise are never touched.
  */
-export function snapshotsToPrune(names: string[], now: Date, keepDays: number): string[] {
+export function snapshotsToPrune(
+  names: string[],
+  now: Date,
+  keepDays: number,
+  keepMonths = Number.POSITIVE_INFINITY,
+): string[] {
   // Whole days: a copy dated exactly `keepDays` ago is inside the window all
   // that day, not only until the hour it happened to be taken.
   const then = new Date(now.getTime() - keepDays * 86_400_000)
   const cutoff = Date.UTC(then.getUTCFullYear(), then.getUTCMonth(), then.getUTCDate())
+  // Whole months, likewise: the copy for a month is kept until that month
+  // is more than `keepMonths` behind the current one.
+  const monthCutoff = Number.isFinite(keepMonths)
+    ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - keepMonths, 1)
+    : Number.NEGATIVE_INFINITY
   const dated = names
     .map((name) => ({ name, m: SNAPSHOT.exec(name) }))
     .filter((f): f is { name: string; m: RegExpExecArray } => f.m !== null)
@@ -146,9 +163,43 @@ export function snapshotsToPrune(names: string[], now: Date, keepDays: number): 
   return dated
     .filter(({ name, m }) => {
       const day = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-      return day < cutoff && !firstOfMonth.has(name)
+      if (day >= cutoff) return false
+      return !firstOfMonth.has(name) || day < monthCutoff
     })
     .map(({ name }) => name)
+}
+
+/**
+ * Which photos a backup holds that the live account no longer does.
+ *
+ * Photos used to be kept in every copy for ever, on the argument that the
+ * payment screenshots are the proof behind approvals. Two things changed
+ * it: a seller who deletes her account has her screenshots and her product
+ * photos destroyed on the live account, as the privacy policy says - and a
+ * backup that kept them was keeping exactly what she had been told was
+ * gone; and a photo of a product she took down is nobody's to keep either.
+ *
+ * The same line as the database: if more than half the backup's photos
+ * would go, or the live account reads as empty, that is a problem with the
+ * live account, named in `problem`, and the caller removes nothing unless
+ * `ALLOW_BULK_DELETE=true` says the shrink is deliberate.
+ */
+export function photosToPrune(
+  livePublicIds: Iterable<string>,
+  backupPublicIds: Iterable<string>,
+  labels = { source: 'live', target: 'the backup' },
+): { remove: string[]; problem: string | null } {
+  const live = new Set(livePublicIds)
+  const backup = [...backupPublicIds]
+  const remove = backup.filter((id) => !live.has(id))
+  if (remove.length === 0) return { remove, problem: null }
+  if (live.size === 0) {
+    return { remove, problem: `the ${labels.source} account lists no photos, and ${labels.target} holds ${backup.length}` }
+  }
+  if (isBulkDelete(remove.length, backup.length)) {
+    return { remove, problem: `${remove.length} of ${backup.length} photos in ${labels.target} are gone from ${labels.source}` }
+  }
+  return { remove, problem: null }
 }
 
 /**

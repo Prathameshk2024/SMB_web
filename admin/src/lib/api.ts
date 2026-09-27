@@ -3,6 +3,7 @@ import type {
   SubscriptionPayment,
 } from '@shared/types.js'
 import type { SubscriptionView } from '@shared/subscription.js'
+import type { AdminCloseChannel } from '@shared/accountClose.js'
 
 /**
  * The one seam between the console and the API.
@@ -75,11 +76,14 @@ export function onSessionExpired(fn: ExpiryListener): () => void {
 export class ApiError extends Error {
   status: number
   messageMr?: string
+  /** A close refused because of orders in flight names them, so they can be chased. */
+  openOrders?: { id: string; status: string }[]
 
-  constructor(status: number, body: { error?: string; messageMr?: string }) {
+  constructor(status: number, body: { error?: string; messageMr?: string; openOrders?: { id: string; status: string }[] }) {
     super(body.error ?? 'Request failed')
     this.status = status
     this.messageMr = body.messageMr
+    this.openOrders = body.openOrders
   }
 
   /** The message to show, in the language on screen. */
@@ -171,6 +175,12 @@ export type OrderRow = Order & { seller?: string; womenBizId?: string }
 export type ProductRow = Product & { seller?: Seller; reports?: Report[] }
 /** /admin/reviews decorates each review with the seller's shop name and id. */
 export type ReviewRow = Review & { seller?: string; womenBizId?: string; reports?: Report[] }
+export interface AdminCloseBody {
+  channel: AdminCloseChannel
+  verified: boolean
+  note?: string
+}
+
 export type SellerRow = Seller & {
   productCount: number
   /** Delivered orders only, summed on the server. */
@@ -178,6 +188,22 @@ export type SellerRow = Seller & {
   slots: { used: number; total: number }
   /** Where her six months stand, on the server's clock. */
   subscription?: SubscriptionView
+  /** Buyers' open reports about the SHOP. Listing reports sit on the Products screen. */
+  reports?: Report[]
+}
+
+/**
+ * A buyer sellers have reported. She has no page in the console, so this row
+ * is her page: what was said, from which order, her number, and whether she
+ * is already blocked - read off her record at request time.
+ */
+export interface ReportedBuyer {
+  customerId: string
+  name: string
+  phone: string
+  blocked: boolean
+  blockReason?: string
+  reports: Report[]
 }
 
 /**
@@ -261,9 +287,29 @@ export const api = {
   resolveComplaint: (id: string) =>
     post<{ complaint: Complaint }>(`/admin/complaints/${id}/resolve`, {}),
 
-  sellers: () => get<{ sellers: SellerRow[] }>('/admin/sellers'),
+  sellers: () => get<{ sellers: SellerRow[]; reportedCount: number }>('/admin/sellers'),
 
   sellerDetail: (id: string) => get<SellerDetail>(`/admin/sellers/${id}`),
+
+  recordPayment: (id: string, body: {
+    kind: 'PACK' | 'RENEWAL'; method: 'CASH' | 'UPI' | 'OTHER'; paidAt: string; utr?: string; note?: string
+  }) => post<{ seller: Seller }>(`/admin/sellers/${id}/record-payment`, body),
+
+  /** Looked at, and the shop stays up. */
+  clearSellerReports: (id: string) => post<{ ok: true }>(`/admin/sellers/${id}/clear-reports`, {}),
+
+  /** Buyers that sellers have reported, grouped by buyer. */
+  reportedBuyers: () => get<{ buyers: ReportedBuyer[]; reportedCount: number }>('/admin/customers/reported'),
+
+  clearCustomerReports: (id: string) =>
+    post<{ ok: true }>(`/admin/customers/${id}/clear-reports`, {}),
+
+  /**
+   * Refuse a buyer's number - no sign-in, no orders - or lift it. Closing
+   * her account is not a ban; this is. The reason is required to block.
+   */
+  blockCustomer: (body: { phone: string; blocked: boolean; reason?: string }) =>
+    post<{ customer: { id: string; blocked?: boolean } }>('/admin/customers/block', body),
 
   grantSlots: (id: string, packs: number) =>
     post<{ seller: Seller }>(`/admin/sellers/${id}/grant-slots`, { packs }),
@@ -276,6 +322,20 @@ export const api = {
   /** The reason is shown to her in her own app, so it is not optional noise. */
   blockSeller: (id: string, blocked: boolean, reason?: string) =>
     post<{ seller: Seller }>(`/admin/sellers/${id}/block`, { blocked, reason }),
+
+  /**
+   * Close an account for somebody who asked by phone, WhatsApp or email and
+   * cannot sign in. `verified` is the call-back to the registered number; the
+   * server refuses without it. See adminCloseProblem in shared/src/accountClose.ts.
+   */
+  closeSeller: (id: string, body: AdminCloseBody & { confirm: string }) =>
+    post<{ seller: Seller }>(`/admin/sellers/${id}/close`, body),
+
+  restoreSeller: (id: string) =>
+    post<{ seller: Seller }>(`/admin/sellers/${id}/restore`, {}),
+
+  closeCustomer: (body: AdminCloseBody & { phone: string }) =>
+    post<{ ok: true; ordersCleared: number }>('/admin/customers/close', body),
 
   orders: (params: { status?: string; sellerId?: string; pincode?: string } = {}) => {
     const qs = new URLSearchParams()

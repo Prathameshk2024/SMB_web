@@ -7,13 +7,19 @@ import { summarizeReviews } from '@shared/review.js'
 import {
   SUBSCRIPTION_MONTHS, addMonths, canSellNow, subscriptionState, subscriptionView,
 } from '@shared/subscription.js'
-import { applyApprovedPayment } from '../db/subscription.js'
+import { applyApprovedPayment, recordOutsidePayment } from '../db/subscription.js'
 import { getDb, save } from '../db/store.js'
 import { documentCount, startsWithinFreeReads } from '../db/firestore.js'
 import { sellerStatusAfterReject } from '../db/payments.js'
 import { appendNotice as notifySeller } from '../db/notices.js'
-import { requireRole } from '../middleware/auth.js'
+import { callerIp, requireRole } from '../middleware/auth.js'
 import { destroyImage } from './uploads.routes.js'
+import { adminCloseCustomer, adminCloseSeller, restoreSeller } from '../db/accountClose.js'
+import { recordAuthEvent } from '../auth/events.js'
+import { hashIp, maskPhone } from '../auth/crypto.js'
+import { closeReports, openReportsFor, reportedBuyers, reportsBySeller } from '../db/reports.js'
+import { blockCustomer } from '../db/customers.js'
+import { revokeAllForUser } from '../auth/sessions.js'
 
 /**
  * ADMIN API - BACKEND ONLY.
@@ -243,6 +249,23 @@ adminRouter.post('/payments/:id/reject', (req, res) => {
   res.json({ payment })
 })
 
+/** Money taken at the desk or by a coordinator - the APK has no pay screen. */
+adminRouter.post('/sellers/:id/record-payment', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+  const result = recordOutsidePayment(db, seller, req.body ?? {}, verifierName(db, req))
+  if ('status' in result) {
+    res.status(result.status).json({ error: result.error, messageMr: result.messageMr })
+    return
+  }
+  save()
+  res.status(201).json({ payment: result.payment, seller })
+})
+
 /** Goodwill, a trainee batch, a demo account. */
 adminRouter.post('/sellers/:id/grant-slots', (req, res) => {
   const db = getDb()
@@ -347,16 +370,7 @@ adminRouter.get('/products', (req, res) => {
  */
 adminRouter.post('/products/:id/clear-reports', (req, res) => {
   const db = getDb()
-  const now = new Date().toISOString()
-  const by = verifierName(db, req)
-  let closed = 0
-  for (const r of db.reports) {
-    if (r.targetId === req.params.id && !r.reviewedAt) {
-      r.reviewedAt = now
-      r.reviewedBy = by
-      closed++
-    }
-  }
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
   if (closed) save()
   res.json({ ok: true, closed })
 })
@@ -542,16 +556,7 @@ adminRouter.get('/reviews', (req, res) => {
  */
 adminRouter.post('/reviews/:id/clear-reports', (req, res) => {
   const db = getDb()
-  const now = new Date().toISOString()
-  const by = verifierName(db, req)
-  let closed = 0
-  for (const r of db.reports) {
-    if (r.targetId === req.params.id && !r.reviewedAt) {
-      r.reviewedAt = now
-      r.reviewedBy = by
-      closed++
-    }
-  }
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
   if (closed) save()
   res.json({ ok: true, closed })
 })
@@ -601,6 +606,10 @@ adminRouter.get('/sellers', (_req, res) => {
   for (const o of db.orders) {
     if (o.status === 'DELIVERED') earned.set(o.sellerId, (earned.get(o.sellerId) ?? 0) + o.total)
   }
+  // Buyers' open reports about the SHOP, not about her listings: those sit
+  // on the Products screen. A report changes nothing about her on its own -
+  // it is a queue for an admin to look at, drawn on her row.
+  const reports = reportsBySeller(db)
   res.json({
     sellers: db.sellers.map((s) => {
       const products = db.products.filter(
@@ -613,9 +622,19 @@ adminRouter.get('/sellers', (_req, res) => {
         earned: earned.get(s.id) ?? 0,
         // On the server's clock, like every other answer about the date.
         subscription: subscriptionView(s),
+        reports: reports.get(s.id) ?? [],
       }
     }),
+    reportedCount: reports.size,
   })
+})
+
+/** Looked at, and the shop stays. Same decision as closing a listing's reports. */
+adminRouter.post('/sellers/:id/clear-reports', (req, res) => {
+  const db = getDb()
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
+  if (closed) save()
+  res.json({ ok: true, closed })
 })
 
 /**
@@ -653,6 +672,7 @@ adminRouter.get('/sellers/:id', (req, res) => {
       slots: slotInfo(seller, products),
       productCount: products.length,
       subscription: subscriptionView(seller),
+      reports: openReportsFor(db, seller.id, 'seller'),
     },
     products,
     orders,
@@ -697,6 +717,132 @@ adminRouter.post('/sellers/:id/block', (req, res) => {
 
   save()
   res.json({ seller })
+})
+
+/* ------------------------------------------------------------------ */
+/* Closing an account for somebody who cannot sign in                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The deletion page and the privacy policy promise that an account can be
+ * closed on request by phone, WhatsApp or email when its owner cannot pass an
+ * OTP. These are the routes that keep that promise; `adminCloseProblem` in
+ * shared/src/accountClose.ts says what they insist on, and why.
+ *
+ * Each one leaves an auth event naming the staff member - for a buyer it is
+ * the only trace, since her row is gone.
+ */
+adminRouter.post('/sellers/:id/close', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+
+  const by = verifierName(db, req)
+  const subject = maskPhone(seller.phone)
+  const result = adminCloseSeller(db, seller, req.body ?? {}, by)
+  if (!result.ok) {
+    const { status, ...body } = result
+    res.status(status).json(body)
+    return
+  }
+
+  recordAuthEvent(db, {
+    type: 'session.revoked', subject, role: 'seller',
+    ip: hashIp(callerIp(req)), detail: `account.close.admin by ${by}`,
+  })
+  save()
+  res.json({ seller })
+})
+
+/** A staff close undone inside the week - the wrong shop, or she changed her mind. */
+adminRouter.post('/sellers/:id/restore', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+  if (seller.status !== 'CLOSED' || !seller.closingAt) {
+    res.status(409).json({ error: 'This account is not closing', messageMr: 'हे खाते बंद होत नाही आहे.' })
+    return
+  }
+  restoreSeller(seller)
+  save()
+  res.json({ seller })
+})
+
+/* ------------------------------------------------------------------ */
+/* Buyers                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Buyers that sellers have reported, grouped by buyer, newest first. A buyer
+ * has no page in the console, so this list IS her page: the reports, the
+ * order each came from, her number to ring, and whether she is blocked.
+ */
+adminRouter.get('/customers/reported', (_req, res) => {
+  const buyers = reportedBuyers(getDb())
+  res.json({ buyers, reportedCount: buyers.length })
+})
+
+adminRouter.post('/customers/:id/clear-reports', (req, res) => {
+  const db = getDb()
+  const closed = closeReports(db, req.params.id, verifierName(db, req))
+  if (closed) save()
+  res.json({ ok: true, closed })
+})
+
+/**
+ * BLOCK A BUYER, keyed on her phone number.
+ *
+ * Closing an account is not a ban - see `blockCustomer`. This is. `blocked:
+ * false` lifts it. The reason is required and kept for the desk; she reads
+ * only that the number is blocked. Logged like a close, with the staff
+ * member's name, because refusing somebody a market is a decision somebody
+ * has to be able to stand behind later.
+ */
+adminRouter.post('/customers/block', (req, res) => {
+  const db = getDb()
+  const by = verifierName(db, req)
+  const phone = String(req.body?.phone ?? '')
+  const result = blockCustomer(
+    db, phone, req.body ?? {}, by,
+    (d, userId, now) => revokeAllForUser(d, userId, 'admin', now),
+  )
+  if (!result.ok) {
+    const { status, ...body } = result
+    res.status(status).json(body)
+    return
+  }
+  recordAuthEvent(db, {
+    type: 'session.revoked', subject: maskPhone(phone), role: 'customer',
+    ip: hashIp(callerIp(req)),
+    detail: `${result.customer.blocked ? 'customer.block' : 'customer.unblock'} by ${by}`,
+  })
+  save()
+  res.json({ customer: result.customer })
+})
+
+adminRouter.post('/customers/close', (req, res) => {
+  const db = getDb()
+  const phone = String(req.body?.phone ?? '')
+  const by = verifierName(db, req)
+  const result = adminCloseCustomer(db, phone, req.body ?? {})
+  if (!result.ok) {
+    const { status, ...body } = result
+    res.status(status).json(body)
+    return
+  }
+
+  recordAuthEvent(db, {
+    type: 'session.revoked', subject: maskPhone(phone), role: 'customer',
+    ip: hashIp(callerIp(req)), detail: `account.close.admin by ${by}`,
+  })
+  save()
+  res.json({ ok: true, ordersCleared: result.ordersCleared })
 })
 
 /**

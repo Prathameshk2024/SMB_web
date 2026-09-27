@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **backend/** — Express API serving all three, including `/api/admin/*`
 - **shared/** — domain types and rules imported by all of the above
 
-Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`.
+Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`. Play Console answers: `docs/PLAY-STORE.md`.
 Marathi style: `docs/MARATHI-STYLE.md` — read it before writing any Marathi string.
 
 `README.md` is deliberately short — layout, run, demo logins, links. Rules and architecture live here and in `docs/`, not there; the long README it replaced repeated them and had drifted from the code in more than a dozen places.
@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (350) + frontend (136) + admin (37) tests
+npm test               # backend (434) + frontend (141) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -35,6 +35,7 @@ npm run admin:users -- list          # administrator accounts (create / passwd /
 npm run admin:users -- hash          # a password hash for ADMIN_BOOTSTRAP_PASSWORD_HASH
 npm run backfill:customers -- --help
 npm run purge:demo -- --help
+npm run scrub:auth-ips           # hash raw IPs left in old auth events; --commit to write
 npm run backup -- --dry-run      # live Firestore + photos to the backup accounts (BACKUP_* in backend/.env.example)
 ```
 
@@ -78,7 +79,7 @@ Consequences that matter when changing anything in `backend/src/`:
 - **No single persist may delete more than half a collection.** `isBulkDelete()` in `firestore.ts` refuses it, keeps the documents, and logs loudly; `ALLOW_BULK_DELETE=true` on the one command that means it is the override. This exists because on 10 September 2026 a persist whose in-memory `sellers` and `products` were empty deleted six real sellers and thirteen products, recovered only from Firestore's one-hour version history. A refusal means memory and the server disagree — find out why before trusting that process.
 - **This is correct for exactly ONE server process.** Two instances each hold their own snapshot and silently overwrite each other. Cloud Run is pinned to `--max-instances=1`, and a deploy is the one moment that ceiling does not hold: the new revision starts before the old one has drained, so for a few seconds there are two. Deploy when nobody is placing orders. Outgrowing this means converting route handlers to async per-document reads — real work, not a config change.
 - A Firestore connection failure at boot **falls back to the JSON file** and says so loudly. Reads and writes track the same `firestoreLive` flag so they can never disagree.
-- An empty database stays empty unless `SEED_DEMO_DATA` is set. Never make seeding automatic — it would put invented sellers in front of real customers.
+- An empty database stays empty unless `SEED_DEMO_DATA` is set. Never make seeding automatic — it would put invented sellers in front of real customers. **The server refuses to boot in production with it set** (`config.ts`), for the same reason.
 
 Firebase is **server-side only**, via `firebase-admin` with a service account. There is no Firebase Web SDK anywhere, and adding one would be an architectural change, not a convenience: `firestore.rules` denies all client-SDK access because every business rule (slot limits, legal order transitions, who may edit what) lives in the API.
 
@@ -94,7 +95,7 @@ Firebase is **server-side only**, via `firebase-admin` with a service account. T
   - **MSG91 widget** (`MSG91_AUTH_KEY` + `MSG91_WIDGET_ID`) — what production uses, because it needs no DLT registration. The browser sends *and* checks the code, then hands back a JWT; `otp.providers.ts` trades that JWT for the number it was issued for and **refuses it unless it matches the phone in the request**. That comparison is the whole security of the path — a token only proves *some* number was verified. The frontend half is `lib/msg91Widget.ts`, using `exposeMethods: true` so the app keeps its own OTP screen rather than MSG91's English modal.
   - **Server-side** (no widget configured) — 6 digits from the CSPRNG, stored as an HMAC, single-use, 5-minute TTL, destroyed after 5 wrong guesses. Demo mode returns the code in the response so the app is walkable; it is a real code that is really checked, and production refuses to boot on this path.
   - `verifyOtp` checks `provider.verify` **before** the six-digit format test — a widget JWT is not six digits, and that ordering is what lets it through. `sendOtp` delivers nothing on the widget path - the SMS already went out from the browser - but the app calls `/auth/otp/send` **before** it asks the widget to send, because that route is where the per-number quota is counted. Skipping it made "three codes a day" a comment rather than a limit.
-- **Rate limits** live in `auth/rateLimit.ts`, keyed by *both* subject and IP. This needs `app.set('trust proxy', 1)`; without it Cloud Run's front end makes every request share one address. The send ceiling is **three codes per number per 24h** — an SMS bill, not a security knob. `retryInMr()` in `auth.routes.ts` says that back in days or hours; "1440 मिनिटांनी" is a number rather than an answer, and it inflects for one, because "1 दिवसांनी" tells a woman this was not written for her on the one screen where she is already being told no.
+- **Rate limits** live in `auth/rateLimit.ts`, keyed by *both* subject and IP. This needs `app.set('trust proxy', 1)`; without it Cloud Run's front end makes every request share one address. The send ceiling is **three codes per number per 24h** — an SMS bill, not a security knob — except for the one number in `SEND_LIMIT_EXEMPT`: the demo number set in MSG91's widget for Play's reviewers, which is sent no SMS. `retryInMr()` in `auth.routes.ts` says that back in days or hours; "1440 मिनिटांनी" is a number rather than an answer, and it inflects for one, because "1 दिवसांनी" tells a woman this was not written for her on the one screen where she is already being told no.
 - **Admins** are database records with scrypt hashes (`auth/admins.ts`), managed by `npm run admin:users`. There is no `ADMIN_PASSWORD`.
 - **Idle windows, not absolute**: admin 8h, seller/customer 15 days (inactive for more than 15 days ends the session). Different because the risk differs, and because re-issuing a seller's token costs an SMS. There is also an **absolute** ceiling (admin 7d, others 90d) so a copied token cannot be kept alive forever by being used.
 - Past halfway through the window the server re-stamps the token onto the **`X-Session-Token`** response header; `frontend/src/lib/api.ts` and `admin/src/lib/api.ts` swap it in. This header must stay in the CORS `exposedHeaders` list or every session expires on a timer regardless of activity.
@@ -113,9 +114,22 @@ Google Play requires that an app which lets people make an account lets them del
 - **Seven days between asking and erasing** (`UNDO_DAYS`). The shop closes and every session is revoked the moment she asks; `sweepClosedAccounts()` does the erasing later, at boot and on the 15-minute timer, the same sweep pattern as `purgeExpiredRejections()` and for the same reason — the week almost always contains a deploy. Signing in during it puts a "your account is closing" notice at the top of My Business with one button (`POST /sellers/me/restore`). **A buyer gets no window**: what she loses is an address book, and her account is her phone number, so signing in again gives her a new empty one rather than this one back.
 - **Two screens and four digits stop a stray tap.** The entry point is deliberately nowhere near Log out — its own card at the very bottom of the profile, a quiet line rather than a red button — and the sheet walks the `CancelOrderSheet` shape: what it costs (her own listing count, and that the ₹50 is not refunded), why she is leaving, then **the last four digits of her own number, typed**. Not a word to copy, which is a literacy test, and not a second OTP, which is an SMS against a three-a-day ceiling proving possession of a phone she is already signed in on. The server re-checks all of it.
 - **An order in flight refuses the close** (409 with `openOrders`), on both sides. The sheet names the orders instead of printing an error: a buyer waiting on a delivery cannot be left holding an order whose seller has vanished, and she already has the buttons to finish or cancel one.
-- **A closing buyer leaves the orders she placed**: `customerName` becomes the `ग्राहक` placeholder, `customerPhone` and `address` are emptied, her reviews keep their stars and lose her name. The pincode stays — it is a delivery area, not a doorstep.
-- Her Cloudinary images go too: the seller's bank QR by its stored public id, each payment screenshot by one parsed out of its URL (`publicIdFromUrl`), since a payment stores only the URL and an image nobody can name is one nobody can ever delete.
-- **Still missing for Play:** there is no privacy policy page in this app, and the retention above (orders, the ₹50 ledger) has to be written down in one before submission.
+- **A closing buyer leaves the orders she placed**: `customerName` becomes the `ग्राहक` placeholder, `customerPhone`, `address` and `landmark` are emptied, her reviews keep their stars and lose her name. The pincode stays — it is a delivery area, not a doorstep. **Her id goes too.** A buyer's id is her phone number (`c-9011223344`) and the key `/orders/mine` looks up, so a close that blanked the phone and left the id handed the whole history back on her next sign-in. `closeCustomer` rewrites the id on her orders, reviews, reports, complaints and session rows to one random `c-closed-…` tombstone per closing (`CLOSED_CUSTOMER_PREFIX`); `backend/tests/account-erasure.test.ts` asserts her number appears nowhere in the serialised database afterwards. A **blocked** buyer's row is kept, emptied of everything but the number, or the close would lift the block.
+- **Her listings go with her.** `scrubProducts()` empties each (`PRODUCT_PII_FIELDS`: name, photo, ingredients, material, licence number) and destroys the photograph. The rows become `ARCHIVED` tombstones rather than deletions, because five listings in a small catalogue is a bulk delete; `purgeArchived()` removes tombstones at the next boot or product read, and only when that is not one. Her complaints keep their words and lose her name and phone.
+- Her Cloudinary images go too: the seller's bank QR by its stored public id, each product photo by its, each payment screenshot by one parsed out of its URL (`publicIdFromUrl`), since a payment stores only the URL and an image nobody can name is one nobody can ever delete. The backup accounts follow on the next nightly run (`docs/BACKUP.md`).
+- **Staff can close an account for somebody who cannot sign in** — the lost phone, the OTP that never arrives — because `/delete-account` and the privacy policy promise it by phone, WhatsApp or email. `POST /admin/sellers/:id/close` (the red button beside Block on her page, undone by `/restore` inside the week) and `POST /admin/customers/close` by phone number (a card on the Complaints screen, since a buyer has no page); `npm run admin -- close-seller|close-customer` drives the same routes. `adminCloseProblem()` in `shared/src/accountClose.ts` is the rule: how the request arrived, a tick that staff **rang the registered number back** and she confirmed — anyone can email naming a rival's number — and, for a seller, her last four digits typed. The effect is exactly her own button's (seven days for a seller, none for a buyer, the same open-order refusal); the seller's `closeNote` records the channel and the staff member, and an auth event names them for a buyer, whose row is gone. `backend/tests/admin-close.test.ts` holds it.
+- The retention above (orders, the ₹50 ledger) is written down in the privacy policy — see *Policies and consent*. Change one, change the other.
+
+### Policies and consent
+
+Five documents — privacy policy, terms of use, seller agreement, returns and refunds, grievances and contact — in `frontend/src/legal/`, as plain data in `mr.ts` and `en.ts` (written independently, like the dictionaries), drawn by `screens/legal/Legal.tsx` at the public routes `/legal` and `/legal/:docId`. Public for the same reason as `/delete-account`: the Play Console needs a privacy-policy URL a browser opens, and a buyer should read the terms before giving a number. `docs/PLAY-STORE.md` has the URLs and the data safety answers.
+
+- **The operator and the grievance officer are in `legal/operator.ts`**, quoted by every document. The E-Commerce Rules and the IT Rules require both to be published; the officer's phone must stay equal to `SUPPORT_PHONE` (a test holds it).
+- **Every number in the text is imported from the rule that enforces it** — `PLAN`, `MAX_EDITS`, `UNDO_DAYS`, `REVIEW_WINDOW_DAYS`, `RENEW_REMINDER_DAYS` — so the policy cannot say ₹50 after the code says ₹60. **Every other claim is a claim about code**: what is collected, who sees it (`publicSeller()`), what closing an account erases. Changing any of those changes the policy too.
+- **Consent is recorded, not assumed** (`shared/src/legal.ts`): `acceptedPolicies: { version, at }` on the `Seller` and `Customer` record. The seller wizard's review step and the customer's name screen each carry a `PolicyConsent` tick-box, and `/sellers/register` and the first `PATCH /customers/me` refuse anything but a literal `acceptPolicies: true` (`saidYes`) — a missing field is an old app that never drew the box. The seller's check runs **before** her single-use ticket is spent, or a missing tick would cost her another OTP. It survives an account being closed: it is the evidence, not personal data.
+- **Everyone else meets `PolicyGate` once**: a full-screen notice over both layouts, like `RateOrderGate` and above it, until `POST /policies/accept`. It asks on layout mount only, and lets her through if the check fails offline — never lock a woman out of her own shop over a network blip.
+- **`POLICY_VERSION` is the effective date.** Move it only when what someone agreed to changes; every signed-in person is then asked again. A clearer sentence is not a new version — asking for nothing teaches people to tap "I agree" blind.
+- `frontend/tests/legal.test.ts` holds the two languages to the same documents and sections; `marathi.test.ts` runs the Marathi policy text through the style sheet; `backend/tests/policies.test.ts` holds the consent rules.
 
 ### Order state machine
 
@@ -398,11 +412,13 @@ The key is `wb.draft.product.<sellerId>` and the seller id is **also stored insi
 
 **`other` is the escape hatch, and it carries no `food` flag.** `Category.food` absent means *both halves*, because both wizard screens filter the list by the food question the seller has already answered — flag it either way and half the sellers lose their escape hatch. Twelve categories cannot name everything a village makes, and a woman whose product is not listed otherwise has two choices: file it under something it is not, which poisons the filter for every buyer, or stop. It sorts last and has no entry in `categoryPhoto.ts`, because there is no honest picture of "everything else". `backend/tests/categories.test.ts` holds all of that.
 
-Known gap: **the server never checks `categoryId` against this list** — `products.routes.ts` only requires it to be non-empty, so a junk id is stored and the product then falls out of every category filter. There is at least one such row in production (`pickles`, plural).
+`isCategoryId()` beside it is what `products.routes.ts` checks on submit and on edit. It used to require only a non-empty string, so a junk id was stored and the product fell out of every category filter; there is at least one such row in production (`pickles`, plural) from before the check. The `beauty` category is "Beauty & Personal care", not "Wellness": a category named for health invites the cure claims the terms forbid.
 
 ### Product photos
 
 **Every upload is compressed on the phone, and nothing over 5MB is accepted.** Product photos, her bank's QR and the payment screenshot all go through `uploadImage()` in `frontend/src/lib/upload.ts`, so anything uploaded later gets the same treatment. Each image is re-encoded as JPEG, small ones included, with quality stepped down until it meets a target size. The numbers are in `lib/compress.ts`: product 1200px and ~350KB; payment screenshot 1800px and ~600KB, because the admin has to *read* the UTR and time on it. The canvas is painted white first, since a transparent PNG pixel encodes as black in JPEG. Cloudinary's signed upload transformation in `uploads.routes.ts` repeats the same size caps, as a backstop for a phone that could not compress. `frontend/tests/compress.test.ts` holds it.
+
+**A photo URL a route stores has to be one the picker uploaded.** `ownImageProblem()` in `backend/src/db/images.ts` accepts only a URL in this Cloudinary account's `product/` folder (or `payment/` for a screenshot, which `screenshotProblem()` now delegates to), and `POST/PATCH /products`, `/sellers/register` and `PATCH /sellers/me` refuse anything else for `imageUrl`, `upiQrUrl` and `photo`. A URL is a URL, and the QR reaches every buyer at checkout. With Cloudinary off, any URL is a pasted one and is refused; absent is always fine.
 
 `PhotoPicker` takes **one photo, from the gallery, and nothing else**. The camera button and the emoji fallback grid are both gone, so a photo is now required unless Cloudinary is off — the picker reports that upward through `onUnavailable` and the step stops being a wall the seller cannot pass. Once a photo is in, "choose from gallery" is disabled rather than silently replacing it; the ✕ on the thumbnail is the way to change it. The file input resets its own `value`, or removing a photo and picking the same file again fires no `change` event at all.
 
@@ -467,6 +483,8 @@ Phone notifications (tray, sound, app closed) for the APK, sent by the API throu
 **Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
 
 This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the day listings become deletable again, by her or by an admin.
+
+**Inside the APK the ₹50 does not exist.** Google Play requires its own billing for anything bought to unlock an app, and forbids in-app links or flows towards another way to pay — and this fee buys slots and time. So `lib/inApk.ts` (true when the wrapper's `ReactNativeWebView` bridge is on the window) switches the seller's side to status only: `/seller/subscription` becomes `ShopRegistration` (is the shop on, slots in use, until when — no price, no QR, no form), `/seller/waiting` redirects there, and **every dictionary key with a `.apk` twin reads the twin** (`lookup()` in `I18nProvider`), so notices, buttons and the updates list lose the price without a screen knowing. `frontend/tests/apk-no-price.test.ts` fails on any new line naming the ₹50 without a twin; pushes go only to the APK, so `pushText.ts` carries the twin wording. She pays the desk or a coordinator, and staff enter it with **Record payment** on her page in the console (`POST /admin/sellers/:id/record-payment`, `recordOutsidePayment()` in `db/subscription.ts`, `backend/tests/outside-payment.test.ts`) — the same `applyApprovedPayment` as the queue, so a renewal moves her date, which `grant-slots` never does. The website keeps its pay screen and queue unchanged.
 
 **Where the ₹50 goes is `ADMIN_PAYMENT_ACCOUNT` in `config.ts`**, env-readable
 (`ADMIN_UPI_ID`, `ADMIN_UPI_NAME`, `ADMIN_BANK_NAME`), defaulting to the
@@ -555,6 +573,24 @@ write, and the only moderation signal that arrives *after* a listing is live.
 - **A reason is always required**, from the list, and only `other` carries
   typed words — a queue where every row says "inappropriate" cannot be
   triaged. Reports are anonymous to the seller.
+- **A shop and a buyer can be reported too** (`REPORT_TARGETS` is `product`,
+  `review`, `seller`, `customer`), because Play asks for a way to report the
+  account behind a post, not only the post. Each target has its own reason
+  list (`reasonsFor(target)`; `REPORT_REASONS` still means the listing list)
+  and `mayReport(role, target)` says who may file which: a buyer reports what
+  she is shown, a seller reports what is done to her. `db/reports.ts` applies
+  it: a seller may report a buyer only from an **order between them**, and
+  the report keeps the `orderId`. Shop reports sit on her row in the register
+  (a Reported filter) and on her page; buyer reports on the console's
+  Complaints screen, grouped by buyer, since a buyer has no page.
+  `backend/tests/report-targets.test.ts` holds it.
+- **Blocking a buyer is not closing her account.** Closing rebuilds her row
+  from her number the next time she signs in; `POST /admin/customers/block`
+  (a button on the reported-buyers card, one by typed number beside it, and
+  `npm run admin -- block-customer`) stamps the customer row — created if
+  absent — revokes every session, and `/auth/otp/verify` and `POST /orders`
+  refuse the number with a message that names no reason. The block survives
+  a close. Reason required and kept; `backend/tests/block-buyer.test.ts`.
 - `reports` is a Firestore collection, so it counts against the daily read
   budget (docs/CAPACITY.md §4). `backend/tests/report.test.ts` holds the rules.
 
@@ -566,6 +602,10 @@ Sellers, Products, Orders and Payments each have a **Sort by** menu. `admin/src/
 
 - `womenbiz.ts` — the `SMB-<VILLAGE>-<NN>` ID. The serial is **per village**, not global, so the code tells a field coordinator where to go. Non-survey villages are transliterated from Devanagari.
 - `readiness.ts` — Digital Readiness Index. Six factors self-reported at registration (the day-one baseline), four **measured by the platform** from what the seller actually does. Keep that split; it is what makes the before/after comparison meaningful.
+
+### The demo account for Play's reviewers
+
+`backend/src/demo.ts`. One number (`DEMO_PHONE`, set up in MSG91's widget as Demo Credentials so no SMS is sent) is both a seller and a buyer, and the reviewer is told to order from that shop alone. Telling is not enough, so the server keeps the two worlds apart: `demoHidden(seller, req.auth)` hides the demo shop from everyone but the demo buyer in the catalogue list, the by-id lookups, reviews, the contact route, serviceability counts and `GET /sellers/:id`; `demoOrderProblem()` makes `POST /orders` refuse an order between the demo account and a real one in either direction. `SEND_LIMIT_EXEMPT` is built from the same constant. `backend/tests/demo-guard.test.ts` holds it; `docs/PLAY-READINESS-REVIEW.md` has the data to prepare.
 
 ### Config and graceful degradation
 

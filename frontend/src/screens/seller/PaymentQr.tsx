@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { buildUpiLink, isValidUpi } from '@shared/seller.js'
+import { isValidUpi } from '@shared/seller.js'
 import { upiProblem } from '@shared/payment.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
@@ -47,16 +47,9 @@ export default function PaymentQr() {
   const hasUpi = isValidUpi(seller.upiId)
   const ready = !!seller.upiQrReady && hasUpi
 
-  // A sample amount, purely so she can see what a customer will scan. The real
-  // code at checkout is built per order with that order's total.
-  const sampleLink = hasUpi
-    ? buildUpiLink({
-        upiId: seller.upiId,
-        name: seller.shopName,
-        amount: 100,
-        note: 'Shantai Mahila Bazar',
-      })
-    : ''
+  // What a customer will scan, with no amount in it. The real code at
+  // checkout is built per order with that order's total.
+  const sampleLink = hasUpi ? previewLink(seller.upiId, seller.shopName) : ''
 
   async function saveUpi() {
     const fault = upiProblem(upi)
@@ -71,7 +64,7 @@ export default function PaymentQr() {
       setEditing(false)
       setErr('')
     } catch (e) {
-      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : 'Network error')
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
     } finally {
       setBusy(false)
     }
@@ -137,7 +130,7 @@ export default function PaymentQr() {
                 <>
                   <div className="center small dim">{t('qrpay.preview')}</div>
                   <QrCode
-                    value={buildUpiLink({ upiId: upi, name: seller.shopName, amount: 100 })}
+                    value={previewLink(upi, seller.shopName)}
                     label={t('qrpay.title')}
                   />
                 </>
@@ -192,4 +185,19 @@ export default function PaymentQr() {
       </div>
     </>
   )
+}
+
+/**
+ * A PREVIEW THAT CANNOT TAKE ANYBODY'S MONEY BY ITSELF.
+ *
+ * It used to carry a sample 100 rupees, which made it a real, payable request
+ * for an amount nobody owed: scanned by mistake, it pre-fills 100 in the
+ * payer's UPI app. Without `am` the payer's app asks for the amount, which is
+ * exactly what her own bank's QR does. Built here rather than through
+ * buildUpiLink, which always writes an amount because every other caller is
+ * a real order or payment.
+ */
+function previewLink(upiId: string, name: string): string {
+  const p = new URLSearchParams({ pa: upiId, pn: name, cu: 'INR' })
+  return `upi://pay?${p.toString()}`
 }

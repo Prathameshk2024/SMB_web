@@ -18,6 +18,7 @@ import {
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
 import { CloseAccountSheet } from '../../components/CloseAccount.js'
 import { ComplaintSheet } from '../../components/ComplaintSheet.js'
+import { PoliciesTile } from '../../components/Policies.js'
 
 /* ================================================================== */
 /* Profile                                                             */
@@ -165,6 +166,8 @@ export function SellerProfile() {
           <IconEdit aria-hidden="true" /> {t('prof.edit')}
         </Button>
 
+        <PoliciesTile />
+
         <Card data-wt="prof-lang">
           <LanguagePicker />
         </Card>
@@ -228,7 +231,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  * code: `+91` is added where it is needed, because `tel:` and `wa.me` want it
  * written differently and a number typed twice is a number that drifts.
  */
-export const SUPPORT_PHONE = '7057899018'
+export const SUPPORT_PHONE = '9420488874'
 
 export function SellerHelp() {
   const t = useT()

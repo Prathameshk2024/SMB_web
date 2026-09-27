@@ -1,3 +1,5 @@
+import { DEMO_PHONE } from '../demo.js'
+
 /**
  * RATE LIMITING
  * =============
@@ -65,6 +67,16 @@ export const LIMITS = {
   /** Wider per IP: a village's buyers share their carrier's address. */
   pushTokenPerIp: { max: 200, windowMs: 60 * 60 * 1000 },
 } satisfies Record<string, Limit>
+
+/**
+ * Numbers the per-number SEND ceiling does not apply to: the demo number
+ * set in MSG91's OTP widget ("Demo Credentials") for Google Play's reviewers.
+ * MSG91 sends it no SMS, so the ceiling's reason - an SMS bill - is absent,
+ * and a reviewer signing in a fourth time would otherwise be locked out for a
+ * day. The verify limits and every per-IP limit still apply to it. If the
+ * demo number changes in MSG91, change it here too.
+ */
+export const SEND_LIMIT_EXEMPT: ReadonlySet<string> = new Set([DEMO_PHONE])
 
 /**
  * Count one attempt against a limit.

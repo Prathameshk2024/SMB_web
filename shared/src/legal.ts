@@ -26,7 +26,7 @@
  */
 
 /** The date the current text took effect, which is also its name. */
-export const POLICY_VERSION = '2026-09-26'
+export const POLICY_VERSION = '2026-09-27'
 
 export interface PolicyAcceptance {
   version: string

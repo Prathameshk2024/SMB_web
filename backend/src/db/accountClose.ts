@@ -1,9 +1,13 @@
+import crypto from 'node:crypto'
 import type { Order, Seller, SubscriptionPayment } from '@shared/types.js'
-import { openOrders, scrubDueAt } from '@shared/accountClose.js'
+import {
+  CLOSED_CUSTOMER_PREFIX, type AdminCloseChannel, type AdminCloseInput, adminCloseNote, adminCloseProblem,
+  openOrders, scrubDueAt,
+} from '@shared/accountClose.js'
 import type { Db } from './seed.js'
 import { destroyImage } from '../routes/uploads.routes.js'
 import { revokeAllForUser } from '../auth/sessions.js'
-import { PLACEHOLDER_NAME } from './customers.js'
+import { PLACEHOLDER_NAME, customerIdFor } from './customers.js'
 
 /**
  * DELETING AN ACCOUNT, APPLIED.
@@ -127,6 +131,9 @@ export function scrubSeller(
   delete seller.monthlyCapacity
   delete seller.notices
   delete seller.blockReason
+  delete seller.fssai
+  delete seller.closeNote
+  seller.shopSlug = ''
   seller.digital = {
     smartphone: false, internet: false, upi: false,
     whatsappBusiness: false, socialMedia: false, digitalMarketing: false,
@@ -141,8 +148,54 @@ export function scrubSeller(
   for (const payment of db.payments.filter((p) => p.sellerId === seller.id)) {
     scrubPayment(payment, destroy)
   }
+  scrubProducts(db, seller.id, destroy)
+  // What she wrote to the desk stays readable; how to reach her does not.
+  // The id stays too - it is the shop's, and the shop's row is still there.
+  for (const complaint of db.complaints) {
+    if (complaint.byRole === 'seller' && complaint.byUserId === seller.id) {
+      complaint.name = CLOSED_SHOP_NAME
+      complaint.phone = ''
+    }
+  }
   forgetSessions(db, seller.id, now)
   return seller
+}
+
+/**
+ * HER LISTINGS. Each is a photograph she took, a name she gave, what she
+ * put in it and her licence number on it - everything the privacy policy
+ * says goes when she does.
+ *
+ * The rows are EMPTIED rather than removed, here. A persist may not delete
+ * more than half a collection (`isBulkDelete`), and a woman with five
+ * listings in a small catalogue is more than half of it; a delete that is
+ * refused leaves memory and the server disagreeing, which is worse than a
+ * row. So each becomes an `ARCHIVED` tombstone holding nothing, and
+ * `purgeArchived` removes tombstones at the next boot or product read -
+ * only when doing so is not a bulk delete, so a tiny catalogue keeps them
+ * until it grows. Nothing reads an ARCHIVED row in between.
+ */
+export function scrubProducts(
+  db: Db,
+  sellerId: string,
+  destroy: (publicId: string | undefined) => unknown,
+): number {
+  let n = 0
+  for (const product of db.products) {
+    if (product.sellerId !== sellerId) continue
+    // Now or never: the row is the only record of the image's public id.
+    void destroy(product.imagePublicId)
+    product.name = ''
+    delete product.nameEn
+    delete product.imageUrl
+    delete product.imagePublicId
+    delete product.ingredients
+    delete product.material
+    delete product.fssai
+    product.status = 'ARCHIVED'
+    n++
+  }
+  return n
 }
 
 /**
@@ -194,22 +247,69 @@ export function closeCustomer(db: Db, customerId: string, phone: string, now = D
   const mine = (o: Order): boolean =>
     o.customerId === customerId || (!!digits && o.customerPhone.replace(/\D/g, '') === digits)
 
+  /**
+   * HER ID IS HER NUMBER. `c-9011223344` on an order is the phone number,
+   * and it is also the key `/orders/mine` looks up - so leaving it meant a
+   * deletion that erased nothing and a sign-in that gave the account back.
+   * One random tombstone per closing replaces it everywhere she touched,
+   * and no OTP ever produces it. Her orders still group together under it,
+   * which is what a seller's buyer list needs and all it needs.
+   */
+  const tombstone = `${CLOSED_CUSTOMER_PREFIX}${crypto.randomBytes(6).toString('hex')}`
+
   for (const order of db.orders.filter(mine)) {
+    order.customerId = tombstone
     order.customerName = PLACEHOLDER_NAME
     order.customerPhone = ''
     order.address = ''
+    delete order.landmark
     // The pincode stays. It is a village, not a doorstep, and it is what a
     // seller's delivery area is measured against.
   }
 
   for (const review of db.reviews.filter((r) => r.customerId === customerId)) {
+    review.customerId = tombstone
     review.customerName = PLACEHOLDER_NAME
   }
 
-  const i = db.customers.findIndex((c) => c.id === customerId)
-  if (i >= 0) db.customers.splice(i, 1)
+  // Reports she made keep their reason; reports made about her keep theirs
+  // and stop naming her. Both stop pointing at her number.
+  for (const report of db.reports) {
+    if (report.byUserId === customerId) report.byUserId = tombstone
+    if (report.targetType === 'customer' && report.targetId === customerId) {
+      report.targetId = tombstone
+      report.targetName = PLACEHOLDER_NAME
+    }
+  }
 
-  forgetSessions(db, customerId, now)
+  for (const complaint of db.complaints) {
+    if (complaint.byRole === 'customer' && complaint.byUserId === customerId) {
+      complaint.byUserId = tombstone
+      complaint.name = PLACEHOLDER_NAME
+      complaint.phone = ''
+    }
+  }
+
+  const i = db.customers.findIndex((c) => c.id === customerId)
+  const row = db.customers[i]
+  if (row?.blocked) {
+    /**
+     * A BLOCKED BUYER'S ROW STAYS, emptied of everything but the number.
+     *
+     * The block is keyed on the phone, and a close that dropped the row
+     * would lift it: she signs in again, a fresh row is built from her
+     * number, and she is back. Keeping the number of somebody who has been
+     * refused the market is the one retention deletion does not undo, and
+     * the privacy policy says so.
+     */
+    row.name = ''
+    row.addresses = []
+    row.updatedAt = new Date(now).toISOString()
+  } else if (i >= 0) {
+    db.customers.splice(i, 1)
+  }
+
+  forgetSessions(db, customerId, now, tombstone)
 }
 
 /**
@@ -220,14 +320,21 @@ export function closeCustomer(db: Db, customerId: string, phone: string, now = D
  * signed in during her seven days to look at the notice, and neither restored
  * nor logged out, held a LIVE session into an erased shop. Blanking rather
  * than deleting the rows keeps this clear of `isBulkDelete`.
+ *
+ * A buyer's session rows also carry her id, which is her number, so those
+ * take the tombstone too.
  */
-function forgetSessions(db: Db, userId: string, now: number): void {
+function forgetSessions(db: Db, userId: string, now: number, tombstone?: string): void {
   revokeAllForUser(db, userId, 'logout', now)
   for (const session of db.sessions) {
     if (session.userId !== userId) continue
     session.phone = ''
     delete session.pushToken
     delete session.pushLang
+    if (tombstone) {
+      session.userId = tombstone
+      if (session.customerId) session.customerId = tombstone
+    }
   }
 }
 
@@ -250,4 +357,92 @@ export function sweepClosedAccounts(
   )
   for (const seller of due) scrubSeller(db, seller, now, destroy)
   return due.length
+}
+
+/* ------------------------------------------------------------------ */
+/* Staff closing an account on a request                               */
+/* ------------------------------------------------------------------ */
+
+export type AdminCloseResult =
+  | { ok: true }
+  | { ok: false; status: number; error: string; messageMr: string; openOrders?: { id: string; status: string }[] }
+
+const OPEN_ORDERS_REFUSAL = {
+  error: 'Open orders: they must be finished or cancelled first',
+  messageMr: 'सुरू असलेले ऑर्डर आधी पूर्ण किंवा रद्द व्हायला हवेत. त्यानंतर खाते बंद करता येईल.',
+}
+
+/**
+ * A seller asked by phone, WhatsApp or email and staff confirmed it was her.
+ *
+ * Exactly her own button's effect - the shop closes now, the erasing waits
+ * `UNDO_DAYS` - with the reason `other` and a note naming the channel and the
+ * staff member. The same open-order refusal applies: a buyer waiting on a
+ * delivery is no less stranded because an admin pressed the button.
+ */
+export function adminCloseSeller(
+  db: Db,
+  seller: Seller,
+  input: AdminCloseInput,
+  by: string,
+  now = Date.now(),
+): AdminCloseResult {
+  if (seller.status === 'CLOSED') {
+    return seller.closingAt
+      ? { ok: false, status: 409, error: 'Already closing', messageMr: 'हे खाते आधीच बंद होत आहे.' }
+      : { ok: false, status: 409, error: 'Already erased', messageMr: 'हे खाते आधीच पुसले गेले आहे.' }
+  }
+
+  const problem = adminCloseProblem(input, seller.phone, { needsDigits: true })
+  if (problem) return { ok: false, status: 400, ...problem }
+
+  const open = openOrdersForSeller(db, seller.id)
+  if (open.length) {
+    return { ok: false, status: 409, ...OPEN_ORDERS_REFUSAL, openOrders: open.map((o) => ({ id: o.id, status: o.status })) }
+  }
+
+  const note = typeof input.note === 'string' ? input.note : undefined
+  requestSellerClose(db, seller, {
+    reason: 'other',
+    note: adminCloseNote(input.channel as AdminCloseChannel, by, note),
+  }, now)
+  return { ok: true }
+}
+
+/**
+ * A buyer asked. Found by the phone number staff typed, because a buyer has
+ * no page in the console - she is her phone number. Refused as "not found"
+ * when that number has neither a record nor an order, so a typo does not
+ * report success for an account that never existed.
+ */
+export function adminCloseCustomer(
+  db: Db,
+  phone: string,
+  input: AdminCloseInput,
+  now = Date.now(),
+): AdminCloseResult & { ordersCleared?: number } {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length !== 10) {
+    return { ok: false, status: 400, error: 'Type the 10-digit number', messageMr: '10 अंकी मोबाईल नंबर टाका' }
+  }
+
+  const problem = adminCloseProblem(input, digits, { needsDigits: false })
+  if (problem) return { ok: false, status: 400, ...problem }
+
+  const customerId = customerIdFor(digits)
+  const hasRow = db.customers.some((c) => c.id === customerId)
+  const orders = db.orders.filter(
+    (o) => o.customerId === customerId || o.customerPhone.replace(/\D/g, '') === digits,
+  )
+  if (!hasRow && orders.length === 0) {
+    return { ok: false, status: 404, error: 'No buyer with this number', messageMr: 'या नंबरचा ग्राहक सापडला नाही.' }
+  }
+
+  const open = openOrdersForCustomer(db, customerId, digits)
+  if (open.length) {
+    return { ok: false, status: 409, ...OPEN_ORDERS_REFUSAL, openOrders: open.map((o) => ({ id: o.id, status: o.status })) }
+  }
+
+  closeCustomer(db, customerId, digits, now)
+  return { ok: true, ordersCleared: orders.length }
 }

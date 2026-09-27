@@ -22,7 +22,8 @@ test('every notification title is the sentence the updates list prints', () => {
   for (const lang of LANGS) {
     for (const [key, value] of Object.entries(PUSH_LINES[lang])) {
       if (!key.startsWith('notif.')) continue
-      assert.equal(value, dictionaries[lang][key], `${lang} ${key}`)
+      // A push only ever lands on the APK, so it matches the APK's line.
+      assert.equal(value, dictionaries[lang][`${key}.apk`] ?? dictionaries[lang][key], `${lang} ${key}`)
     }
   }
 })
@@ -105,7 +106,7 @@ test('"I paid" puts the amount in the title and the order id in the body', () =>
 
 test('an admin decision opens the page its updates row opens', () => {
   const approved: AdminNotice = { id: 'a1', at: '2026-09-21T10:00:00Z', kind: 'PAYMENT_APPROVED', n: 5 }
-  assert.equal(adminNoticePush(approved, 'mr').title, 'तुमचा ₹50 चा भरणा मंजूर झाला — 5 जागा मिळाल्या')
+  assert.equal(adminNoticePush(approved, 'mr').title, 'तुमच्या दुकानाला 5 नवीन जागा मिळाल्या')
   assert.equal(adminNoticePush(approved, 'mr').path, ADMIN_NOTICE_PATH.PAYMENT_APPROVED)
   const blocked: AdminNotice = { id: 'a2', at: '2026-09-21T10:00:00Z', kind: 'BLOCKED', note: 'फोटो चुकीचा' }
   assert.equal(adminNoticePush(blocked, 'mr').path, '/seller')
