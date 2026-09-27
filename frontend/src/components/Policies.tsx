@@ -126,6 +126,8 @@ export function PolicyGate({ onBlockingChange }: { onBlockingChange?: (blocking:
         </div>
         <ReadFirst docs={role === 'seller' ? SELLER_DOCS : BUYER_DOCS} />
         {err && <Notice tone="danger">{err}</Notice>}
+        {/* The button says the age out loud, like the tick at registration:
+            everybody who registered before that tick existed agrees here. */}
         <Button onClick={agree} disabled={busy}>
           {busy ? t('common.loading') : t('legal.gateAgree')}
         </Button>
