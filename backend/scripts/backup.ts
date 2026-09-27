@@ -1,25 +1,33 @@
 /**
  * BACK UP THE LIVE DATABASE AND PHOTOS
  * ====================================
- * One run does three things:
+ * One run does three things for each backup target it copies into:
  *
  *   1. Reads every backed-up Firestore collection from the live project and
- *      writes it to a dated, gzipped JSON file in backend/data/backups/,
- *      keeping every copy from the last BACKUP_KEEP_DAYS (30) and the first
- *      of each month for BACKUP_KEEP_MONTHS (12) after that. Unpacked, it is
- *      db.json's shape, so the JSON driver can boot from it directly:
- *        node -e "process.stdout.write(require('zlib').gunzipSync(require('fs').readFileSync(process.argv[1])))" <file> > data/db.json
- *      `npm run restore -- --file <file>` loads it back into Firestore.
- *   2. Mirrors the same documents into a backup Firebase project on another
- *      account - unless the live project has shrunk suspiciously since the
- *      backup was last taken (see shrinkProblems in src/db/backupPlan.ts).
+ *      stores it as a dated, gzipped copy in the target's `snapshots`
+ *      collection, then prunes that collection: every copy from the last
+ *      BACKUP_KEEP_DAYS (30), and the first of each month until a week
+ *      before it is BACKUP_KEEP_MONTHS (12) old. This is what keeps the
+ *      privacy policy's "within 12 months" without anybody remembering to.
+ *      `npm run restore -- --snapshot list` shows them; `--snapshot <name>`
+ *      loads one back.
+ *   2. Mirrors the same documents into the target's own collections -
+ *      unless the live project has shrunk suspiciously since the backup was
+ *      last taken (see shrinkProblems in src/db/backupPlan.ts).
  *   3. Copies every photo the backup Cloudinary account does not have yet,
- *      Cloudinary to Cloudinary, keeping the same public_id, and downloads new
- *      ones to backend/data/backups/images/. Photos the live account no
- *      longer has are removed from both - a deleted account's screenshots
+ *      Cloudinary to Cloudinary, keeping the same public_id. Photos the live
+ *      account no longer has are removed - a deleted account's screenshots
  *      and product photos are destroyed live, and the privacy policy says
  *      backups follow within a limited time - under the same shrink check
  *      as the database (photosToPrune).
+ *
+ * With --local it also writes the dated copy to backend/data/backups/ and
+ * downloads the photos to backend/data/backups/images/, pruning both by the
+ * same rules. That copy survives losing every account, but it is pruned only
+ * when somebody runs this on that machine again - so it is off by default,
+ * and a copy taken for a restore drill should be deleted afterwards.
+ * Unpacked, a copy is db.json's shape, so the JSON driver boots from it:
+ *   node -e "process.stdout.write(require('zlib').gunzipSync(require('fs').readFileSync(process.argv[1])))" <file> > data/db.json
  *
  * The live project is only ever READ. Its free plan allows 50,000 reads a
  * day and one run costs one read per document - the same as one API start -
@@ -28,32 +36,38 @@
  *   npm run backup                   # today's target, by rotation
  *   npm run backup -- --to a         # a named target (repeatable)
  *   npm run backup -- --dry-run      # report, write nothing anywhere
- *   npm run backup -- --no-local-images
+ *   npm run backup -- --local        # also a copy on this machine
+ *   npm run backup -- --no-copies    # mirror only, no dated copy stored
+ *                                    # (implied for a target named `live`)
+ *   npm run backup -- --local --no-local-images
  *
  * Targets are configured in the environment - see readTargets() and the
- * BACKUP_ block in .env.example. With none configured, only the local file
- * is written. Exits non-zero if anything was refused or failed, so a scheduled
- * run that did not complete is visible as a failure.
+ * BACKUP_ block in .env.example. With none configured, nothing is stored
+ * unless --local says so. Exits non-zero if anything was refused or failed,
+ * so a scheduled run that did not complete is visible as a failure.
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { cert, deleteApp, initializeApp, type App } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import { ALLOW_BULK_DELETE, cloudinary, firebase } from '../src/config.js'
 import { getFirestoreDb } from '../src/db/firestore.js'
 import {
   BACKED_UP, imagePublicIds, photosToPrune, pickTargets, readTargets, shrinkProblems, snapshotName,
-  snapshotsToPrune, type BackupTarget,
+  snapshotsToPrune, storedSnapshotsToPrune, type BackupTarget,
 } from '../src/db/backupPlan.js'
 import {
-  applyMirror, countsOf, deleteAssets, listAssets, readCollections, uploadAsset, type Asset, type Collections,
+  applyMirror, countsOf, deleteAssets, deleteSnapshotParts, listAssets, listSnapshotParts, readCollections,
+  storeSnapshot, uploadAsset, type Asset, type Collections,
 } from '../src/db/backupIo.js'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
-const localImages = !args.includes('--no-local-images')
+const local = args.includes('--local')
+const storeCopies = !args.includes('--no-copies')
+const localImages = local && !args.includes('--no-local-images')
 const requested = args.flatMap((a, i) => (a === '--to' && args[i + 1] ? [args[i + 1]!] : []))
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -63,7 +77,11 @@ const BACKUP_DIR = process.env.BACKUP_DIR?.trim()
   ? path.resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BACKUP_DIR.trim())
   : path.join(here, '../data/backups')
 const KEEP_DAYS = Math.max(1, Number(process.env.BACKUP_KEEP_DAYS) || 30)
-const KEEP_MONTHS = Math.max(1, Number(process.env.BACKUP_KEEP_MONTHS) || 12)
+// Twelve is a ceiling, not only a default: the privacy policy and the delete
+// page say deleted information leaves the monthly copies within 12 months,
+// so an environment variable may shorten that but never stretch it.
+const MAX_KEEP_MONTHS = 12
+const KEEP_MONTHS = Math.min(MAX_KEEP_MONTHS, Math.max(1, Number(process.env.BACKUP_KEEP_MONTHS) || MAX_KEEP_MONTHS))
 
 let failed = false
 function fail(message: string): void {
@@ -75,17 +93,21 @@ function fail(message: string): void {
 /* Firestore                                                           */
 /* ------------------------------------------------------------------ */
 
-function writeLocalSnapshot(live: Collections): void {
-  const now = new Date()
-  const file = path.join(BACKUP_DIR, snapshotName(now))
-  // db.json's shape, with `sessions` empty rather than absent so the JSON
-  // driver takes it as it is. To boot from it: unpack it to data/db.json and
-  // start the API with no FIREBASE_* variables set.
+/**
+ * The dated copy, gzipped: db.json's shape, with `sessions` empty rather than
+ * absent so the JSON driver takes it as it is. The same bytes go to every
+ * target and to the local file, so a copy restores the same from either.
+ */
+function snapshotBytes(live: Collections): Buffer {
   const snapshot: Record<string, unknown[]> = { sessions: [] }
   for (const [name, docs] of Object.entries(live)) {
     snapshot[name] = [...docs].map(([id, data]) => ({ id, ...data }))
   }
+  return gzipSync(JSON.stringify(snapshot, null, 2))
+}
 
+function writeLocalSnapshot(gz: Buffer, now: Date): void {
+  const file = path.join(BACKUP_DIR, snapshotName(now))
   const existing = fs.existsSync(BACKUP_DIR) ? fs.readdirSync(BACKUP_DIR) : []
   const doomed = snapshotsToPrune([...existing, path.basename(file)], now, KEEP_DAYS, KEEP_MONTHS)
 
@@ -95,7 +117,7 @@ function writeLocalSnapshot(live: Collections): void {
     return
   }
   fs.mkdirSync(BACKUP_DIR, { recursive: true })
-  fs.writeFileSync(file, gzipSync(JSON.stringify(snapshot, null, 2)))
+  fs.writeFileSync(file, gz)
   console.log(`  local    wrote ${file} (${(fs.statSync(file).size / 1024).toFixed(0)} KB)`)
 
   // Only after today's copy is safely on disk, so a run that fails to write
@@ -106,7 +128,38 @@ function writeLocalSnapshot(live: Collections): void {
   }
 }
 
-async function mirrorFirestore(target: BackupTarget, live: Collections): Promise<void> {
+/**
+ * Tonight's copy into the target's `snapshots`, then the old ones out.
+ *
+ * Before the shrink check, and whatever it says: a copy is only ever added,
+ * so storing one of a live project that looks damaged loses nothing - and
+ * pruning is by age alone, because a shrink that went unnoticed for weeks
+ * must not also stop the privacy policy's twelve months from being kept.
+ * Pruning happens only after tonight's copy is stored, so a run that fails
+ * to write never shrinks the history it was meant to add to.
+ */
+async function keepSnapshot(db: Firestore, label: string, gz: Buffer, now: Date): Promise<void> {
+  const name = snapshotName(now)
+  try {
+    const existing = await listSnapshotParts(db)
+    if (dryRun) {
+      const doomed = storedSnapshotsToPrune(
+        [...existing, { id: `${name}~0`, snapshot: name, part: 0, parts: 1 }], now, KEEP_DAYS, KEEP_MONTHS,
+      )
+      console.log(`  copies   → ${label}: would store ${name} (${(gz.length / 1024).toFixed(0)} KB), would prune ${doomed.length} parts`)
+      return
+    }
+    const parts = await storeSnapshot(db, name, gz, now)
+    const doomed = storedSnapshotsToPrune(await listSnapshotParts(db), now, KEEP_DAYS, KEEP_MONTHS)
+    await deleteSnapshotParts(db, doomed)
+    const kept = new Set((await listSnapshotParts(db)).map((p) => p.snapshot)).size
+    console.log(`  copies   → ${label}: stored ${name} (${(gz.length / 1024).toFixed(0)} KB, ${parts} part${parts === 1 ? '' : 's'}), pruned ${doomed.length} parts, ${kept} copies kept`)
+  } catch (err) {
+    fail(`copies → ${label}: ${(err as Error).message}`)
+  }
+}
+
+async function mirrorFirestore(target: BackupTarget, live: Collections, gz: Buffer, now: Date): Promise<void> {
   const config = target.firestore!
   // The one mistake this script could make with the live data is taking it for
   // a backup: mirroring deletes a live project's documents to match whatever
@@ -123,6 +176,11 @@ async function mirrorFirestore(target: BackupTarget, live: Collections): Promise
       `backup-${target.name}`,
     )
     const db = config.databaseId ? getFirestore(app, config.databaseId) : getFirestore(app)
+    // A restore runs this script in reverse, with the live project as the
+    // target (docs/BACKUP.md §4) - and a dated copy of everybody stored inside
+    // the live database is the last thing it should leave behind. The docs
+    // name that target `live`, so the name alone stops it as well as the flag.
+    if (storeCopies && target.name !== 'live') await keepSnapshot(db, config.projectId, gz, now)
     const backup = await readCollections(db, BACKED_UP)
 
     const problems = shrinkProblems(countsOf(live), countsOf(backup))
@@ -263,7 +321,7 @@ async function main(): Promise<void> {
 
   console.log('')
   console.log(`  backup${dryRun ? ' (DRY RUN - nothing is written)' : ''}`)
-  console.log(`  targets  ${chosen.length ? chosen.map((t) => t.name).join(', ') : '(none - local copy only)'}`)
+  console.log(`  targets  ${chosen.length ? chosen.map((t) => t.name).join(', ') : local ? '(none - local copy only)' : '(none - nothing will be stored; set BACKUP_TARGETS or pass --local)'}`)
   console.log('')
 
   if (firebase) {
@@ -271,8 +329,10 @@ async function main(): Promise<void> {
       const live = await readCollections(getFirestoreDb(), BACKED_UP)
       const total = Object.values(live).reduce((n, docs) => n + docs.size, 0)
       console.log(`  firestore read ${total} documents from ${firebase.projectId}`)
-      writeLocalSnapshot(live)
-      for (const t of chosen) if (t.firestore) await mirrorFirestore(t, live)
+      const now = new Date()
+      const gz = snapshotBytes(live)
+      if (local) writeLocalSnapshot(gz, now)
+      for (const t of chosen) if (t.firestore) await mirrorFirestore(t, live, gz, now)
     } catch (err) {
       fail(`reading the live Firestore: ${(err as Error).message}`)
     }

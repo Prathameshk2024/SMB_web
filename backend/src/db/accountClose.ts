@@ -157,6 +157,7 @@ export function scrubSeller(
       complaint.phone = ''
     }
   }
+  scrubReportsAbout(db, seller.id)
   forgetSessions(db, seller.id, now)
   return seller
 }
@@ -193,6 +194,33 @@ export function scrubProducts(
     delete product.material
     delete product.fssai
     product.status = 'ARCHIVED'
+    n++
+  }
+  return n
+}
+
+/**
+ * REPORTS ABOUT HER SHOP, HER LISTINGS AND REVIEWS OF THEM.
+ *
+ * Each row copied a name into `targetName` so the queue reads without joins:
+ * her shop's name, which is often her own ("सुनीता गृहउद्योग"), or a listing's
+ * name, which `scrubProducts` has just emptied everywhere else. The privacy
+ * policy says reports are kept without those names, so they go, and so does
+ * the note - it is somebody's typed words about her, and nobody acts on a
+ * report about a shop that no longer exists. The reason code and the date
+ * stay: that a report was made, and how it ended, is the desk's record.
+ *
+ * Rows are emptied, not removed, for the reason listings are: her reports
+ * can be more than half of a small collection, and `isBulkDelete` refuses that.
+ */
+export function scrubReportsAbout(db: Db, sellerId: string): number {
+  let n = 0
+  for (const report of db.reports) {
+    const aboutHer = report.sellerId === sellerId
+      || (report.targetType === 'seller' && report.targetId === sellerId)
+    if (!aboutHer) continue
+    report.targetName = CLOSED_SHOP_NAME
+    delete report.note
     n++
   }
   return n

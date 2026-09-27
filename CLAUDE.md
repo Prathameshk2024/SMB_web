@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (434) + frontend (141) + admin (37) tests
+npm test               # backend (446) + frontend (144) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -36,7 +36,8 @@ npm run admin:users -- hash          # a password hash for ADMIN_BOOTSTRAP_PASSW
 npm run backfill:customers -- --help
 npm run purge:demo -- --help
 npm run scrub:auth-ips           # hash raw IPs left in old auth events; --commit to write
-npm run backup -- --dry-run      # live Firestore + photos to the backup accounts (BACKUP_* in backend/.env.example)
+npm run backup -- --dry-run      # live Firestore + photos to the backup accounts, dated copies kept there (BACKUP_* in backend/.env.example)
+npm run restore -- --snapshot list   # the dated copies stored in the backup project; --snapshot <name> restores one
 ```
 
 Run a single test file — `node:test` via tsx, no framework:
@@ -115,7 +116,7 @@ Google Play requires that an app which lets people make an account lets them del
 - **Two screens and four digits stop a stray tap.** The entry point is deliberately nowhere near Log out — its own card at the very bottom of the profile, a quiet line rather than a red button — and the sheet walks the `CancelOrderSheet` shape: what it costs (her own listing count, and that the ₹50 is not refunded), why she is leaving, then **the last four digits of her own number, typed**. Not a word to copy, which is a literacy test, and not a second OTP, which is an SMS against a three-a-day ceiling proving possession of a phone she is already signed in on. The server re-checks all of it.
 - **An order in flight refuses the close** (409 with `openOrders`), on both sides. The sheet names the orders instead of printing an error: a buyer waiting on a delivery cannot be left holding an order whose seller has vanished, and she already has the buttons to finish or cancel one.
 - **A closing buyer leaves the orders she placed**: `customerName` becomes the `ग्राहक` placeholder, `customerPhone`, `address` and `landmark` are emptied, her reviews keep their stars and lose her name. The pincode stays — it is a delivery area, not a doorstep. **Her id goes too.** A buyer's id is her phone number (`c-9011223344`) and the key `/orders/mine` looks up, so a close that blanked the phone and left the id handed the whole history back on her next sign-in. `closeCustomer` rewrites the id on her orders, reviews, reports, complaints and session rows to one random `c-closed-…` tombstone per closing (`CLOSED_CUSTOMER_PREFIX`); `backend/tests/account-erasure.test.ts` asserts her number appears nowhere in the serialised database afterwards. A **blocked** buyer's row is kept, emptied of everything but the number, or the close would lift the block.
-- **Her listings go with her.** `scrubProducts()` empties each (`PRODUCT_PII_FIELDS`: name, photo, ingredients, material, licence number) and destroys the photograph. The rows become `ARCHIVED` tombstones rather than deletions, because five listings in a small catalogue is a bulk delete; `purgeArchived()` removes tombstones at the next boot or product read, and only when that is not one. Her complaints keep their words and lose her name and phone.
+- **Her listings go with her.** `scrubProducts()` empties each (`PRODUCT_PII_FIELDS`: name, photo, ingredients, material, licence number) and destroys the photograph. The rows become `ARCHIVED` tombstones rather than deletions, because five listings in a small catalogue is a bulk delete; `purgeArchived()` removes tombstones at the next boot or product read, and only when that is not one. Her complaints keep their words and lose her name and phone. Reports about her shop, her listings or reviews of them (`scrubReportsAbout`) keep their reason and lose `targetName` and `note` — a report copies the shop's or product's name for the queue, and the shop name is often her own. Reviews of her products are the one place a product name survives: they are the buyer's words, and the privacy policy and `/delete-account` say they are kept.
 - Her Cloudinary images go too: the seller's bank QR by its stored public id, each product photo by its, each payment screenshot by one parsed out of its URL (`publicIdFromUrl`), since a payment stores only the URL and an image nobody can name is one nobody can ever delete. The backup accounts follow on the next nightly run (`docs/BACKUP.md`).
 - **Staff can close an account for somebody who cannot sign in** — the lost phone, the OTP that never arrives — because `/delete-account` and the privacy policy promise it by phone, WhatsApp or email. `POST /admin/sellers/:id/close` (the red button beside Block on her page, undone by `/restore` inside the week) and `POST /admin/customers/close` by phone number (a card on the Complaints screen, since a buyer has no page); `npm run admin -- close-seller|close-customer` drives the same routes. `adminCloseProblem()` in `shared/src/accountClose.ts` is the rule: how the request arrived, a tick that staff **rang the registered number back** and she confirmed — anyone can email naming a rival's number — and, for a seller, her last four digits typed. The effect is exactly her own button's (seven days for a seller, none for a buyer, the same open-order refusal); the seller's `closeNote` records the channel and the staff member, and an auth event names them for a buyer, whose row is gone. `backend/tests/admin-close.test.ts` holds it.
 - The retention above (orders, the ₹50 ledger) is written down in the privacy policy — see *Policies and consent*. Change one, change the other.
@@ -656,7 +657,7 @@ Both landing photo strips are one component, `PhotoRotator`, cross-fading every 
 
 One Cloud Run service (`shantai-api`, `asia-south1` — the API) and two Vercel projects from this same repo, distinguished only by Root Directory (`frontend` and `admin`), plus an Android APK that is not built from this repo at all (below). `VITE_API_URL` is read at **build** time, so changing it means redeploying.
 
-**The app is the `prathamesh2` branch, and both Vercel projects must track it by name.** `main` holds only the initial commit and `prathamesh` — GitHub's default branch — is an older copy from 8 September with no `admin/` and a lockfile missing rollup's Linux binary, so every default Vercel reaches for builds the wrong code or fails outright. The two branches share nothing after the initial commit; do not merge `prathamesh` in.
+**The app is the `prathamesh2` branch, and both Vercel projects must track it by name.** `main` holds only the initial commit and `prathamesh` is an older copy from 8 September with no `admin/` and a lockfile missing rollup's Linux binary, so a Vercel project left on either builds the wrong code or fails outright. The branches share nothing after the initial commit; do not merge `prathamesh` in. `prathamesh2` is also GitHub's default branch, which matters beyond Vercel: scheduled workflows run from the default branch, so the nightly backup (`docs/BACKUP.md`) runs whatever is on `prathamesh2`.
 
 The service needs two settings that are not Cloud Run's defaults, and neither is visible from the outside:
 

@@ -1,7 +1,9 @@
 import type { Firestore } from 'firebase-admin/firestore'
 import type { CloudinaryConfig } from '../config.js'
 import { sign } from '../routes/uploads.routes.js'
-import { planCollection } from './backupPlan.js'
+import {
+  SNAPSHOT_COLLECTION, joinSnapshot, planCollection, snapshotPartId, splitSnapshot, type SnapshotPart,
+} from './backupPlan.js'
 
 /**
  * The reading and writing that `npm run backup` and `npm run restore` share.
@@ -66,6 +68,64 @@ export async function applyMirror(
   }
   await commit()
   return { written, removed }
+}
+
+/* ------------------------------------------------------------------ */
+/* Dated copies stored in a backup project                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Store one dated copy, split into as many documents as it needs. The bytes
+ * are stored as Firestore bytes, not base64, so a part carries no overhead.
+ *
+ * One write per part, not one batch: a batch is capped at 10 MiB, which a
+ * copy of a dozen parts would exceed. A run that dies between parts leaves a
+ * copy that is not whole, and `storedSnapshotsToPrune` removes those.
+ */
+export async function storeSnapshot(db: Firestore, name: string, gz: Uint8Array, takenAt: Date): Promise<number> {
+  const chunks = splitSnapshot(gz)
+  // A second run inside the same minute reuses the name. Its old parts go
+  // first, or a leftover third part beside a new two-part copy makes the
+  // new one look broken and the prune takes it.
+  const stale = await db.collection(SNAPSHOT_COLLECTION).where('snapshot', '==', name).select().get()
+  await deleteSnapshotParts(db, stale.docs.map((d) => d.id))
+  for (const [part, data] of chunks.entries()) {
+    await db.collection(SNAPSHOT_COLLECTION).doc(snapshotPartId(name, part)).set({
+      snapshot: name, part, parts: chunks.length, takenAt: takenAt.toISOString(), data: Buffer.from(data),
+    })
+  }
+  return chunks.length
+}
+
+/** Every stored part, without its bytes - a listing, not a download. */
+export async function listSnapshotParts(db: Firestore): Promise<SnapshotPart[]> {
+  const snap = await db.collection(SNAPSHOT_COLLECTION).select('snapshot', 'part', 'parts').get()
+  return snap.docs.map((d) => {
+    const data = d.data() as { snapshot?: unknown; part?: unknown; parts?: unknown }
+    return {
+      id: d.id,
+      snapshot: String(data.snapshot ?? ''),
+      part: Number(data.part),
+      parts: Number(data.parts),
+    }
+  })
+}
+
+export async function deleteSnapshotParts(db: Firestore, ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 450) {
+    const batch = db.batch()
+    for (const id of ids.slice(i, i + 450)) batch.delete(db.collection(SNAPSHOT_COLLECTION).doc(id))
+    await batch.commit()
+  }
+}
+
+/** One stored copy's gzipped bytes, put back together. */
+export async function fetchSnapshot(db: Firestore, name: string): Promise<Uint8Array> {
+  const snap = await db.collection(SNAPSHOT_COLLECTION).where('snapshot', '==', name).get()
+  return joinSnapshot(snap.docs.map((d) => {
+    const data = d.data() as { part: number; parts: number; data: Uint8Array }
+    return { part: data.part, parts: data.parts, data: data.data }
+  }))
 }
 
 export interface Asset {

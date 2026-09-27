@@ -52,9 +52,12 @@ Security practices:
   account) and at the deletion URL above.
 - **What is kept after deletion** (disclosed in the privacy policy): past
   orders without the buyer's identity, reviews' stars and words under a
-  placeholder name, the ₹50 payment ledger, complaints without contact
-  details, a blocked buyer's number (so the block holds), and backup copies:
-  the nightly one until the next night, the monthly ones for 12 months.
+  placeholder name (with the product's name, as long as the order they were
+  written on), the ₹50 payment ledger, complaints and reports without contact
+  details or shop and product names, a blocked buyer's number (so the block
+  holds), and backup copies: the nightly one until the next night, the
+  monthly ones for 12 months. The same list is on the `/delete-account` page
+  (`del.whatStays`); Play compares the two, so change both.
 
 ## Other declarations
 
@@ -87,14 +90,20 @@ Security practices:
 
 ## Before submitting: things the policy promises that need checking
 
-- **Backups.** The privacy policy says deleted data stays in a backup "for a
-  limited time until it is replaced". Backup Firestore A holds only the
-  latest copy, which is true of it. But `docs/BACKUP.md` says the local
-  database files keep the first of each month *for good*, and the backup
-  Cloudinary keeps *every photo ever copied*. Both keep erased people for
-  ever. Either prune them (e.g. drop monthly files after a year, delete from
-  the backup Cloudinary what the live one no longer has), or change the
-  policy's wording to say how long they really last.
+- **Backups.** The privacy policy and the delete page say deleted
+  information leaves the nightly backup the next night and the dated monthly
+  copies within 12 months. The code keeps that with nobody in the loop: the
+  nightly GitHub run mirrors deletions into Backup Firestore A, removes from
+  the backup Cloudinary what the live one has destroyed (`photosToPrune`),
+  and stores the dated copies in Backup A's `snapshots` collection, pruning
+  each monthly one a week before it turns 12 months old
+  (`storedSnapshotsToPrune`; `BACKUP_KEEP_MONTHS` can shorten this, never
+  lengthen it). What still depends on people: **the Backup workflow has to
+  stay enabled.** GitHub disables a scheduled workflow after 60 days without
+  a commit to the repository, and emails a warning first; re-enable it from
+  the Actions tab. A `--local` copy on a laptop is pruned only when it is run
+  again there, so delete one after the drill it was made for
+  (`docs/BACKUP.md`).
 - **Rejected ₹50 refunds.** The seller agreement promises the money back
   within 7 working days (`FEE_REFUND_WORKING_DAYS` in
   `frontend/src/legal/operator.ts`). The app does not move money, so this is
