@@ -125,6 +125,44 @@ test('her listings are emptied and their photographs destroyed', () => {
 })
 
 /**
+ * A report copies the name of what it is about, so the admin queue reads
+ * without joins - and so every report about her shop was a copy of her shop's
+ * name, and every report about a listing a copy of the name `scrubProducts`
+ * had just emptied. The privacy policy keeps reports without those names.
+ */
+test('reports about her shop and her listings stop naming them', () => {
+  const s = seller()
+  const db = emptyDb()
+  db.sellers.push(s)
+  db.products.push({ id: 'p1', sellerId: 's1', name: 'आंब्याचे लोणचे', status: 'LIVE', price: 120 } as Product)
+  db.reviews.push({ id: 'r1', customerId: 'c-9000000001', customerName: 'आशा', sellerId: 's1', productId: 'p1', productName: 'आंब्याचे लोणचे', rating: 1, comment: 'खराब' } as Review)
+  db.reports.push(
+    { id: 'rep1', targetType: 'product', targetId: 'p1', sellerId: 's1', targetName: 'आंब्याचे लोणचे', reason: 'unsafe', byUserId: 'c-9000000001', byRole: 'customer', at: '' },
+    { id: 'rep2', targetType: 'seller', targetId: 's1', sellerId: 's1', targetName: 'सुनीता गृहउद्योग', reason: 'other', note: 'सुनीताताईंनी पैसे घेतले', byUserId: 'c-9000000001', byRole: 'customer', at: '' },
+    { id: 'rep3', targetType: 'review', targetId: 'r1', sellerId: 's1', targetName: 'आंब्याचे लोणचे', reason: 'offensive', byUserId: 's1', byRole: 'seller', at: '' },
+    { id: 'rep9', targetType: 'seller', targetId: 's2', sellerId: 's2', targetName: 'गीता मसाले', reason: 'scam', byUserId: 'c-9000000001', byRole: 'customer', at: '' },
+  )
+
+  scrubSeller(db, s, Date.now(), () => {})
+
+  for (const id of ['rep1', 'rep2', 'rep3']) {
+    const r = db.reports.find((x) => x.id === id)!
+    assert.equal(r.targetName, 'बंद केलेले दुकान', `${id} stops naming her`)
+    assert.equal(r.note, undefined, `${id} loses the words written about her`)
+  }
+  assert.equal(db.reports.find((x) => x.id === 'rep1')!.reason, 'unsafe', 'the reason is the record, and it stays')
+  assert.equal(db.reports.find((x) => x.id === 'rep9')!.targetName, 'गीता मसाले', "another shop's report is untouched")
+
+  // Reviews stay, with the product's name: they are the buyer's words about
+  // something she bought, and the privacy policy says they are kept. So the
+  // one place her product's name may survive is a review - nowhere else.
+  const rest = JSON.stringify({ ...db, reviews: [] })
+  assert.ok(!rest.includes('सुनीता'), 'her name is nowhere, the shop name that carried it included')
+  assert.ok(!rest.includes('आंब्याचे लोणचे'), "her listing's name is nowhere but on the review")
+  assert.equal(db.reviews[0]!.productName, 'आंब्याचे लोणचे')
+})
+
+/**
  * Tombstones wait for a moment when removing them is an ordinary write.
  * Four of six rows would be refused by the persist and leave memory and the
  * server disagreeing; four of forty is nothing.
