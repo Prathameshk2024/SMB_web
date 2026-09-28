@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { DigitalProfile, Seller, SubscriptionPayment } from '@shared/types.js'
 import {
-  defaultAbout, fssaiProblem, isValidPhone, isValidPincode, normalizeFssai,
+  defaultAbout, editedFssai, fssaiProblem, isValidPhone, isValidPincode, normalizeFssai,
   normalizePhone, PLAN, samePhone, slotInfo, validateSellerProfile,
 } from '@shared/seller.js'
 import { normalizeUtr, paidAtProblem, upiProblem, utrProblem } from '@shared/payment.js'
@@ -357,12 +357,19 @@ sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
     const fault = key in patch ? ownImageProblem(patch[key], cloudinary, 'product') : null
     if (fault) fields[key] = fault
   }
+  // Outside the allow-list loop because blank has to remove it, not store ''.
+  const fssai = 'fssai' in req.body ? editedFssai(req.body.fssai) : null
+  if (fssai && 'problem' in fssai) fields.fssai = fssai.problem
   if (Object.keys(fields).length) {
     res.status(400).json({ error: 'Validation failed', messageMr: 'माहिती तपासा', fields })
     return
   }
 
   const next = { ...current, ...patch }
+  if (fssai && 'value' in fssai) {
+    if (fssai.value) next.fssai = fssai.value
+    else delete next.fssai
+  }
 
   // Keep the readiness index in step with what she actually has now.
   const products = db.products.filter((p) => p.sellerId === next.id)

@@ -194,6 +194,11 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
         emoji: product.emoji,
         qty: Math.max(1, Number(i.qty)),
         price: product.price, // server price, not the client's
+        // The size she is paying for, from the listing as it is now - the
+        // cart's copy could be days old.
+        unit: product.unit,
+        packSize: product.packSize,
+        piecesPerPack: product.piecesPerPack,
       }
     })
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { FSSAI_DIGITS, fssaiProblem, normalizeFssai } from '@shared/seller.js'
+import { FSSAI_DIGITS, editedFssai, fssaiProblem, normalizeFssai } from '@shared/seller.js'
 
 /**
  * A FOOD LICENCE NUMBER, IF SHE HAS ONE.
@@ -47,4 +47,25 @@ test('it is read as she copies it from the certificate', () => {
 /** The message names the length, because "invalid" tells her nothing to do. */
 test('the refusal says what is wrong with it', () => {
   assert.match(String(fssaiProblem('123')), /14/)
+})
+
+/**
+ * Her number is printed on every food listing she has, so it cannot be
+ * something she typed once at registration and then lived with. From her
+ * profile she can correct it - and take a lapsed licence down, which is why
+ * blank on an edit means "remove it" rather than "leave it as it was".
+ */
+test('an edit keeps a real number, as she copied it from the certificate', () => {
+  assert.deepEqual(editedFssai('1234 5678 9012 34'), { value: '12345678901234' })
+})
+
+test('an edit left blank takes the number down', () => {
+  assert.deepEqual(editedFssai(''), { value: undefined })
+  assert.deepEqual(editedFssai('   '), { value: undefined })
+})
+
+test('an edit to a number that cannot be a licence is refused, not stored', () => {
+  const edit = editedFssai('123')
+  assert.ok('problem' in edit)
+  assert.match(edit.problem, /14/)
 })

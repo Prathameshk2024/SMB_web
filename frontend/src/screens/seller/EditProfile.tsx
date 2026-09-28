@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Seller } from '@shared/types.js'
-import { EDUCATION_LEVELS, phoneInput } from '@shared/seller.js'
+import { EDUCATION_LEVELS, FSSAI_DIGITS, fssaiProblem, phoneInput } from '@shared/seller.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
@@ -33,6 +33,8 @@ import { IconBack } from '../../components/icons.js'
  *    could set those would be a form that grants itself a subscription.
  *
  * Her UPI id is editable, and the server clears `upiVerified` when it changes.
+ * Her FSSAI number is too: it is printed on every food listing she has, so a
+ * mistyped or lapsed one must be hers to fix, and blank takes it down.
  */
 export default function EditProfile() {
   const t = useT()
@@ -53,6 +55,7 @@ export default function EditProfile() {
     monthlyCapacity: string
     upiId: string
     upiQrUrl: string
+    fssai: string
   }>(null)
 
   const [busy, setBusy] = useState(false)
@@ -81,7 +84,12 @@ export default function EditProfile() {
     monthlyCapacity: seller.monthlyCapacity != null ? String(seller.monthlyCapacity) : '',
     upiId: seller.upiId,
     upiQrUrl: seller.upiQrUrl ?? '',
+    fssai: seller.fssai ?? '',
   }
+
+  // Asked at registration only of a food seller; kept here for anyone who
+  // holds a number, so one given by mistake can still be taken down.
+  const showFssai = seller.sellsFood || !!seller.fssai
 
   const set = (k: keyof typeof f, v: string) => {
     setForm({ ...f, [k]: v })
@@ -94,6 +102,8 @@ export default function EditProfile() {
     if (!f.name.trim()) e.name = t('common.required')
     if (!f.shopName.trim()) e.shopName = t('common.required')
     if (f.age && (Number(f.age) < 18 || Number(f.age) > 90)) e.age = '18 - 90'
+    const fssai = showFssai ? fssaiProblem(f.fssai) : null
+    if (fssai) e.fssai = fssai
     setErrors(e)
     if (Object.keys(e).length) return
 
@@ -113,6 +123,8 @@ export default function EditProfile() {
         upiId: f.upiId.trim(),
         upiQrUrl: f.upiQrUrl || undefined,
         upiQrReady: !!f.upiQrUrl,
+        // Sent even when blank: blank is how she removes it.
+        ...(showFssai ? { fssai: f.fssai } : {}),
       })
       setSaved(true)
       toast(t('ok.profileSaved'))
@@ -182,6 +194,16 @@ export default function EditProfile() {
             <Field label={t('reg.shgName')}>
               <VoiceInput value={f.shgName} onChange={(v) => set('shgName', v)} />
             </Field>
+            {showFssai && (
+              <Field label={t('reg.fssai')} hint={t('reg.fssaiHint')} error={errors.fssai} htmlFor="fssai">
+                <TextInput
+                  id="fssai" inputMode="numeric" maxLength={FSSAI_DIGITS} value={f.fssai}
+                  error={!!errors.fssai}
+                  onChange={(e) => set('fssai', e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="12345678901234"
+                />
+              </Field>
+            )}
             <div className="row" style={{ gap: 'var(--s3)', alignItems: 'flex-start' }}>
               <Field label={t('reg.years')} htmlFor="yrs">
                 <TextInput

@@ -69,6 +69,15 @@ export interface OrderItem {
   emoji: string
   qty: number
   price: number
+  /**
+   * What one of `qty` is - "50 kg", "1 set (6 pieces)" - copied at checkout
+   * like the name and price, so "2 × ₹400" says two of what, and still does
+   * after the listing is edited or deleted. Absent on orders placed before it
+   * was copied; `sizeLabel` prints nothing for those.
+   */
+  unit?: Unit
+  packSize?: number
+  piecesPerPack?: number
 }
 
 export interface Order {
@@ -286,8 +295,9 @@ export interface Seller {
   monthlyCapacity?: number
   sellsFood: boolean
   /**
-   * Her FSSAI licence number, asked once at registration and only if she
-   * sells food. Optional (see fssaiProblem), though the form does not say
+   * Her FSSAI licence number, asked at registration only if she sells food,
+   * public on her food listings, and changed or removed from her profile
+   * (editedFssai). Optional (see fssaiProblem), though the form does not say
    * so: labelled "optional", nearly everyone skips it, including the women
    * who hold a licence and gain by showing it.
    */
@@ -617,6 +627,14 @@ export interface CartItem {
   emoji: string
   price: number
   unit: Unit
+  /**
+   * What one of these is ("500" with `g`), copied from the listing like the
+   * name and price. `qty` counts packs, not grams: without these the line read
+   * "1 g × ₹100" for one 500 g pack. Absent on a cart saved before they were
+   * copied, where the screen falls back to the catalogue.
+   */
+  packSize?: number
+  piecesPerPack?: number
   qty: number
 }
 

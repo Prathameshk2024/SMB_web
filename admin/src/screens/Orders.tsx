@@ -3,6 +3,7 @@ import { SortSelect, useSort } from '../components/SortSelect.js'
 import { ORDER_SORTS, sortRows } from '../lib/sort.js'
 import type { OrderStatus } from '@shared/types.js'
 import { cancelReasonKey, endingEvent } from '@shared/orderCancel.js'
+import { sizeLabel } from '@shared/seller.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { IconOrders } from '../components/icons.js'
 import { api, type OrderRow } from '../lib/api.js'
@@ -191,7 +192,10 @@ function OrderDetail({ order, onClose }: { order: OrderRow; onClose: () => void 
           <div className="stack-sm">
             {order.items.map((i) => (
               <div className="row small" key={i.productId}>
-                <span className="grow">{i.name}</span>
+                <span className="grow">
+                  {i.name}
+                  {sizeLabel(i, t) && <span className="dim"> · {sizeLabel(i, t)}</span>}
+                </span>
                 <span className="num dim">× {i.qty}</span>
                 <span className="num">{rupees(i.price * i.qty)}</span>
               </div>

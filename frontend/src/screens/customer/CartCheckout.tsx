@@ -6,7 +6,7 @@ import { OrderStatusBox } from '../../components/OrderTracker.js'
 import {
   STATUS_STYLE, awaitingCustomerPayment, buyerMayCorrectUtr, statusLabelKey,
 } from '@shared/orderFlow.js'
-import { buildUpiLink, isMaharashtraPincode } from '@shared/seller.js'
+import { buildUpiLink, isMaharashtraPincode, sizeLabel } from '@shared/seller.js'
 import { isValidUtr, normalizeUtr, utrProblem } from '@shared/payment.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { useAuth } from '../../store/AuthContext.js'
@@ -153,6 +153,16 @@ export function Cart() {
     return p.madeToOrder ? 20 : p.stock
   }
 
+  /**
+   * What one of this line is - "500 ग्रॅम" - never the quantity dressed as a
+   * weight: `qty` counts packs, and printing it beside the unit turned one
+   * 50 kg pack into "1 kg". The catalogue first, like `maxQty`, because that
+   * is the listing the order will be placed against; the copy on the line
+   * covers a product that has left it.
+   */
+  const lineSize = (item: (typeof cartItems)[number]): string =>
+    sizeLabel((data?.products ?? []).find((x) => x.id === item.productId) ?? item, t)
+
   const sellers = dedupeSellers(data?.products ?? [])
   const groups = groupBySeller(sellers)
   const grand = groups.reduce((n, g) => n + g.total, 0)
@@ -217,8 +227,7 @@ export function Cart() {
                       <div className="grow">
                         <div style={{ fontWeight: 600 }}>{i.name}</div>
                         <div className="small dim">
-                          <span className="num">{i.qty}</span> {t(`unit.${i.unit}`)}
-                          {' × '}<Rupees value={i.price} />
+                          {lineSize(i)}{' · '}<Rupees value={i.price} />
                         </div>
                       </div>
                     </div>
@@ -740,7 +749,12 @@ export function TrackOrder() {
               <span className="lineicon lineicon--lg" aria-hidden="true"><IconProduct /></span>
               <div className="grow">
                 <div style={{ fontWeight: 600 }}>{i.name}</div>
-                <div className="small dim num">× {i.qty}</div>
+                {/* The size first, as on the cart line: "2 × ₹400" does not
+                    say two of what. Older orders carry no size and print
+                    only the count and price. */}
+                <div className="small dim num">
+                  {sizeLabel(i, t) && <>{sizeLabel(i, t)} · </>}{i.qty} × <Rupees value={i.price} />
+                </div>
               </div>
             </div>
           ))}
@@ -890,7 +904,7 @@ export function TrackOrder() {
               <div key={i.productId} className="row-between">
                 <div className="row">
                   <span className="lineicon" aria-hidden="true"><IconProduct /></span>
-                  <span>{i.name} × {i.qty}</span>
+                  <span>{i.name}{sizeLabel(i, t) && ` (${sizeLabel(i, t)})`} × {i.qty}</span>
                 </div>
                 <Rupees value={i.price * i.qty} />
               </div>

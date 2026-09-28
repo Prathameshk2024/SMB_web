@@ -7,7 +7,7 @@ import { useToast } from '../../store/ToastContext.js'
 import ProductImage from '../../components/ProductImage.js'
 import { Avatar } from '../../components/Avatar.js'
 import { api } from '../../lib/api.js'
-import { sizeLabel } from '../../lib/productSize.js'
+import { sizeLabel } from '@shared/seller.js'
 import { ReportLink, ReportSheet } from '../../components/ReportSheet.js'
 import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {

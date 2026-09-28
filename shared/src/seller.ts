@@ -187,6 +187,39 @@ export function sizeProblems(
 }
 
 /**
+ * HOW MUCH IS ONE OF THESE, in words.
+ *
+ * "₹80" tells a buyer nothing until she knows whether that is a 200g jar or a
+ * kilo, and she cannot compare two sellers without it. So every place that
+ * prints a price prints this beside it: "500 ग्रॅम", "1 सेट (6 नग)" - the
+ * product card and page, the cart, and each line of an order, in all three
+ * apps. Here rather than in one app because the console prints it too; `t`
+ * is whichever app's dictionary, which each carry the `unit.*` words.
+ *
+ * A listing from before the size was asked for has none, and then the unit on
+ * its own is still the honest answer - "/ नग" is what those rows always said.
+ * An order line from before sizes were copied onto orders has no unit either,
+ * and gets `''`: nothing is better than a size guessed from today's listing.
+ */
+export function sizeLabel(
+  p: { unit?: Unit; packSize?: number; piecesPerPack?: number },
+  t: (key: string) => string,
+): string {
+  if (!p.unit) return ''
+  const unit = t(`unit.${p.unit}`)
+  const size = Number(p.packSize ?? 0)
+  const base = size > 0 ? `${size} ${unit}` : unit
+
+  // A set of four ladoos and a set of twenty are the same word, so a set says
+  // what is inside it.
+  const pieces = Number(p.piecesPerPack ?? 0)
+  if (needsPieceCount(p.unit) && pieces > 0) {
+    return `${base} (${pieces} ${t('unit.piece')})`
+  }
+  return base
+}
+
+/**
  * A FOOD LICENCE NUMBER, IF SHE HAS ONE.
  *
  * Optional, and that is the whole design: a home kitchen under the FSSAI
@@ -209,6 +242,18 @@ export function fssaiProblem(raw: unknown): string | null {
   const value = normalizeFssai(raw)
   if (!value) return null
   return /^\d{14}$/.test(value) ? null : `FSSAI क्रमांक ${FSSAI_DIGITS} अंकांचा असतो`
+}
+
+/**
+ * Her licence number as the profile form sends it back. It is printed on every
+ * food listing she has, so she must be able to correct it - and to take a
+ * lapsed licence down, which is why blank means "remove", not "unchanged".
+ * `value: undefined` is that removal.
+ */
+export function editedFssai(raw: unknown): { value: string | undefined } | { problem: string } {
+  const problem = fssaiProblem(raw)
+  if (problem) return { problem }
+  return { value: normalizeFssai(raw) || undefined }
 }
 
 export function initialListingStatus(asDraft: boolean): ProductStatus {
