@@ -108,11 +108,11 @@ Security practices:
   names both, because Play expects the policy to name the developer on the
   listing. Change one, change the other.
 - **Package name:** `in.shantai.mahilabazar`, fixed at the first upload.
-- **Reviewer login:** +91 `9999999999` — the MSG91 widget's Demo
-  Credentials, so no SMS is sent. The number is `DEMO_PHONE` in
-  `backend/src/demo.ts`, which keeps the demo shop apart from real ones and
-  exempts it from the three-a-day send ceiling (`SEND_LIMIT_EXEMPT` in
-  `backend/src/auth/rateLimit.ts`); change it there and in MSG91 together.
+- **Reviewer login:** +91 `9579642050` or +91 `9999999999` — both the MSG91
+  widget's Demo Credentials, so no SMS is sent. They are `DEMO_PHONES` in
+  `backend/src/demo.ts`, which keeps the demo shops apart from real ones and
+  exempts them from the three-a-day send ceiling (`SEND_LIMIT_EXEMPT` in
+  `backend/src/auth/rateLimit.ts`); change them there and in MSG91 together.
   The App access text is in `docs/PLAY-READINESS-REVIEW.md`.
 - **Target audience:** 18 and over. Not designed for children.
 - **Ads:** None.

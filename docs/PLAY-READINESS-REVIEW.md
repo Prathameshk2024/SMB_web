@@ -27,8 +27,8 @@ Each finding names the file and line it came from.
 | Raw IP on the seller account-close event replaced by a hashed one | Committed with the above. `npm run scrub:auth-ips` (`822bf5f`) hashes old rows; whether it has been run with `--commit` on production is not verifiable here. |
 | Package name `in.shantai.mahilabazar` | Committed and pushed to the wrapper's `sub-main` on 27 September (per `PLAY-WORK-SPLIT.md`); not verifiable from this repo. Registered in Firebase, and both `google-services.json` copies list it. |
 | Developer name "Team Zenith", registered to Sampanna Rajesh Nampalli, named in the privacy policy (both languages) | Done (`293ff15`), in `legal/en.ts` and `mr.ts`, "Who we are". |
-| MSG91 Demo Credentials for reviewers, number `9999999999` | Set up in MSG91 on 28 September, replacing `9579642050` (not verifiable from this repo). **Done** (`86e89e6`): `DEMO_PHONE` moved to the new number, so the demo guard and the send-limit exemption follow it once the API is redeployed. The old number was tested end to end on 27 September; re-test the new one after the deploy. |
-| Demo number exempt from the 3-codes-a-day send limit (`SEND_LIMIT_EXEMPT`) | Done (`192e8b1`), now built from `DEMO_PHONE` in `backend/src/demo.ts`. |
+| MSG91 Demo Credentials for reviewers, numbers `9999999999` and `9579642050` | `9999999999` set up in MSG91 on 28 September (not verifiable from this repo); **done** (`86e89e6`). It is refused by a check outside this repo, so `9579642050` stays a demo number beside it: `DEMO_PHONES` in `backend/src/demo.ts` holds both, and the demo guard and send-limit exemption cover both once the API is redeployed. `9579642050` was tested end to end on 27 September. |
+| Demo numbers exempt from the 3-codes-a-day send limit (`SEND_LIMIT_EXEMPT`) | Done (`192e8b1`), now built from `DEMO_PHONES` in `backend/src/demo.ts`. |
 | B1 demo safeguards, B3 reporting and blocking, B4 buyer tombstone, B5 deletion page names the app | Done; see *Blockers*. |
 | Privacy policy, Data safety, 18+ consent, misleading strings, shop images, health claims, minor screens | Done, apart from the rows marked otherwise below. |
 | The ₹50 (B2) | Option A built (`77110fa`): no price or pay flow in the APK; staff Record payment. |
@@ -86,11 +86,11 @@ These cannot be changed once an .aab is uploaded, or they block publishing.
 
 ### Setup: done
 
-- **MSG91 Demo Credentials** are set for **+91 `9999999999`** (28 September 2026). No SMS is sent to it, and the fixed OTP verifies it ([MSG91 guide](https://msg91.com/help/sendotp/how-to-integrate-the-new-login-with-otp-widget)). It replaced `9579642050`; `DEMO_PHONE` in `backend/src/demo.ts` moved with it (**done**, `86e89e6`), and the API must be redeployed before the new number is exempt from the send limit and kept apart from real shops.
+- **MSG91 Demo Credentials** are set for **+91 `9999999999`** (28 September 2026) and **+91 `9579642050`**. No SMS is sent to either, and the fixed OTP verifies them ([MSG91 guide](https://msg91.com/help/sendotp/how-to-integrate-the-new-login-with-otp-widget)). `9999999999` is refused by a check outside this repo (our own `isValidPhone` accepts it), so both are kept. `DEMO_PHONES` in `backend/src/demo.ts` lists them, and they are one demo world: either demo buyer may order from either demo shop, and neither may touch a real one. **Every number in that list must be a Demo Credential in MSG91**, or it is a real phone anyone can send unlimited SMS to. The API must be redeployed before `9999999999` is exempt from the send limit and kept apart from real shops.
 - **Tested on 27 September** with the old number: a demo login is accepted end to end, including our API's check of the widget's token with MSG91 (`otp.providers.ts`). No server-side bypass is needed. Re-test with the new one after the deploy.
 - One number covers both sides: the role is chosen at sign-in (`backend/src/routes/auth.routes.ts:134`).
 - **The OTP is kept out of this repo**, which is public, and goes only in the Play Console's App access form. With it, anyone could sign in as the demo seller and buyer.
-- **Send limit:** `SEND_LIMIT_EXEMPT` in `backend/src/auth/rateLimit.ts` holds `9999999999` (now built from `DEMO_PHONE` in `backend/src/demo.ts`), and `/auth/otp/send` skips the 3-a-day per-number limit for it alone. The verify limits and every per-IP limit still apply. `backend/tests/auth-hardening.test.ts` checks it is the only exempt number.
+- **Send limit:** `SEND_LIMIT_EXEMPT` in `backend/src/auth/rateLimit.ts` holds `9999999999` and `9579642050` (built from `DEMO_PHONES` in `backend/src/demo.ts`), and `/auth/otp/send` skips the 3-a-day per-number limit for them alone. The verify limits and every per-IP limit still apply. `backend/tests/auth-hardening.test.ts` checks they are the only exempt numbers.
 
 ### Code still needed
 
@@ -117,7 +117,7 @@ None of this is verifiable from this repo; tick it where it was done.
 
 Choose "All or some functionality is restricted". One set of credentials covers both sides.
 
-**Phone** `9999999999` (+91), **OTP** `<fixed OTP set in MSG91>`. No SMS is sent to this number.
+**Phone** `9579642050` (+91), or `9999999999`; **OTP** `<fixed OTP set in MSG91>`. No SMS is sent to either number. Give the reviewer the one whose shop was set up under *Production data to prepare*.
 
 **As a buyer:**
 
