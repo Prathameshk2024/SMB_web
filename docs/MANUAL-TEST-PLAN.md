@@ -109,7 +109,7 @@ payment time or a kind, and the three pending ones belong to seller ids (`s4`–
 that are not in the seed — approving one changes no seller. Test approval end to end
 with a payment you submit yourself in Suite D.
 
-The Play reviewers' demo number is `9579642050` (`DEMO_PHONE` in `backend/src/demo.ts`);
+The Play reviewers' demo number is `9999999999` (`DEMO_PHONE` in `backend/src/demo.ts`);
 it is both a seller and a buyer, and Suite V checks that it is kept apart.
 
 Slot use at seed: Sunita 4/5 (`p4` PENDING counts), Mangal 4/10, Kavita 3/5 — so no
@@ -178,7 +178,7 @@ them between runs, or use a fresh number for each row that sends.
 | ☐ B9 | Tap "पुन्हा OTP पाठवा" within 30 seconds of the last send | Refused by the cooldown: "OTP आत्ताच पाठवला आहे. {n} सेकंदांनी पुन्हा प्रयत्न करा." Even a refused tap counts towards the day's three |
 | ☐ B10 | Wait 5 minutes, then use the code | Expired, refused with the same message as B6 |
 | ☐ B11 | Send a 4th code to one number within 24 hours | **429** with `Retry-After` and "खूप वेळा प्रयत्न झाले. 1 दिवसाने पुन्हा प्रयत्न करा." — in days or hours, never "1440 मिनिटांनी", and "1 दिवसाने" in the singular |
-| ☐ B11a | Send four codes to the demo number `9579642050` | No 429 — it is the one number exempt from the send limit |
+| ☐ B11a | Send four codes to the demo number `9999999999` | No 429 — it is the one number exempt from the send limit |
 | ☐ B12 | 11 verify attempts in 15 minutes on one number | The 11th returns 429 |
 | ☐ B13 | After B12, verify correctly on a fresh number | Still works — the limiter is per-subject, not global |
 | ☐ B13a | Block a buyer's number in the console (S12), then sign in with it and the correct code | 403, and under the code boxes: "हा नंबर बाजारात बंद केला आहे. मदतीसाठी बाजाराच्या कार्यालयाशी संपर्क करा." — **not** "wrong code", and no session is issued |
@@ -948,7 +948,7 @@ REJECTED or CANCELLED — a PLACED order is open.
 
 ## 22. Suite V — The Play reviewers' demo account
 
-`9579642050` is both a seller and a buyer, set up in MSG91's widget so no SMS is sent.
+`9999999999` is both a seller and a buyer, set up in MSG91's widget so no SMS is sent.
 Register it once as a seller with a live listing and as a buyer.
 
 | ID | What to do | What must happen |
@@ -958,7 +958,7 @@ Register it once as a seller with a live listing and as a buyer.
 | ☐ V3 | Via curl, a real buyer orders from the demo shop | 409 "हे डेमो दुकान आहे. इथून ऑर्डर देता येत नाही." |
 | ☐ V4 | The demo buyer orders from a real shop | 409 "डेमो खात्यातून फक्त डेमो दुकानातूनच ऑर्डर देता येते." |
 | ☐ V5 | The demo buyer orders from the demo shop, and the demo seller walks it to DELIVERED | Works end to end, and never touches a real seller or buyer |
-| ☐ V6 | Request four codes for `9579642050` in a day | No 429 (B11a) |
+| ☐ V6 | Request four codes for `9999999999` in a day | No 429 (B11a) |
 
 ---
 

@@ -213,7 +213,7 @@ test('only the MSG91 demo number skips the send ceiling', () => {
    * Everyone else keeps the three-a-day limit: a wider list would be a way to
    * run up the SMS bill through a number nobody meant to exempt.
    */
-  assert.deepEqual([...SEND_LIMIT_EXEMPT], ['9579642050'])
+  assert.deepEqual([...SEND_LIMIT_EXEMPT], ['9999999999'])
   assert.equal(SEND_LIMIT_EXEMPT.has('9764455662'), false)
 })
 

@@ -27,7 +27,7 @@ Each finding names the file and line it came from.
 | Raw IP on the seller account-close event replaced by a hashed one | Committed with the above. `npm run scrub:auth-ips` (`822bf5f`) hashes old rows; whether it has been run with `--commit` on production is not verifiable here. |
 | Package name `in.shantai.mahilabazar` | Committed and pushed to the wrapper's `sub-main` on 27 September (per `PLAY-WORK-SPLIT.md`); not verifiable from this repo. Registered in Firebase, and both `google-services.json` copies list it. |
 | Developer name "Team Zenith", registered to Sampanna Rajesh Nampalli, named in the privacy policy (both languages) | Done (`293ff15`), in `legal/en.ts` and `mr.ts`, "Who we are". |
-| MSG91 Demo Credentials for reviewers, number `9579642050` | Set up in MSG91 and tested end to end on the live site (27 September; not verifiable from this repo). |
+| MSG91 Demo Credentials for reviewers, number `9999999999` | Set up in MSG91 and tested end to end on the live site (27 September; not verifiable from this repo). |
 | Demo number exempt from the 3-codes-a-day send limit (`SEND_LIMIT_EXEMPT`) | Done (`192e8b1`), now built from `DEMO_PHONE` in `backend/src/demo.ts`. |
 | B1 demo safeguards, B3 reporting and blocking, B4 buyer tombstone, B5 deletion page names the app | Done; see *Blockers*. |
 | Privacy policy, Data safety, 18+ consent, misleading strings, shop images, health claims, minor screens | Done, apart from the rows marked otherwise below. |
@@ -86,12 +86,11 @@ These cannot be changed once an .aab is uploaded, or they block publishing.
 
 ### Setup: done
 
-- **MSG91 Demo Credentials** are set for `9579642050`. No SMS is sent to it, and the fixed OTP verifies it ([MSG91 guide](https://msg91.com/help/sendotp/how-to-integrate-the-new-login-with-otp-widget)).
-- **Tested on 27 September:** a demo login is accepted end to end, including our API's check of the widget's token with MSG91 (`otp.providers.ts`). No server-side bypass is needed.
+- **MSG91 Demo Credentials** are set for **+91 `9999999999`** (28 September 2026). No SMS is sent to it, and the fixed OTP verifies it ([MSG91 guide](https://msg91.com/help/sendotp/how-to-integrate-the-new-login-with-otp-widget)). It replaced `9579642050`; `DEMO_PHONE` in `backend/src/demo.ts` moved with it, and the API must be redeployed before the new number is exempt from the send limit and kept apart from real shops.
+- **Tested on 27 September** with the old number: a demo login is accepted end to end, including our API's check of the widget's token with MSG91 (`otp.providers.ts`). No server-side bypass is needed. Re-test with the new one after the deploy.
 - One number covers both sides: the role is chosen at sign-in (`backend/src/routes/auth.routes.ts:134`).
-- The OTP is kept out of this repo and goes only in the Play Console's App access form.
-- **Change the OTP to a random 6-digit code.** A guessable one like `123456` lets anyone into the demo shop and buyer account, and reviewers read the code from the form anyway. *Not verifiable from this repo (MSG91 dashboard).*
-- **Send limit:** `SEND_LIMIT_EXEMPT` in `backend/src/auth/rateLimit.ts` holds `9579642050` (now built from `DEMO_PHONE` in `backend/src/demo.ts`), and `/auth/otp/send` skips the 3-a-day per-number limit for it alone. The verify limits and every per-IP limit still apply. `backend/tests/auth-hardening.test.ts` checks it is the only exempt number.
+- **The OTP is kept out of this repo**, which is public, and goes only in the Play Console's App access form. With it, anyone could sign in as the demo seller and buyer.
+- **Send limit:** `SEND_LIMIT_EXEMPT` in `backend/src/auth/rateLimit.ts` holds `9999999999` (now built from `DEMO_PHONE` in `backend/src/demo.ts`), and `/auth/otp/send` skips the 3-a-day per-number limit for it alone. The verify limits and every per-IP limit still apply. `backend/tests/auth-hardening.test.ts` checks it is the only exempt number.
 
 ### Code still needed
 
@@ -118,7 +117,7 @@ None of this is verifiable from this repo; tick it where it was done.
 
 Choose "All or some functionality is restricted". One set of credentials covers both sides.
 
-**Phone** `9579642050`, **OTP** `<fixed OTP set in MSG91>`. No SMS is sent to this number.
+**Phone** `9999999999` (+91), **OTP** `<fixed OTP set in MSG91>`. No SMS is sent to this number.
 
 **As a buyer:**
 

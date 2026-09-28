@@ -20,7 +20,7 @@ const realBuyer = { role: 'customer', phone: '9011223344' }
 
 test('one number is the demo account, and the send-limit exemption is built from it', () => {
   assert.equal(isDemoSeller(demoShop), true)
-  assert.equal(isDemoSeller({ phone: '+91 95796 42050' }), true, 'however the record spells it')
+  assert.equal(isDemoSeller({ phone: '+91 99999 99999' }), true, 'however the record spells it')
   assert.equal(isDemoSeller(realShop), false)
   assert.equal(isDemoViewer(demoBuyer), true)
   assert.equal(isDemoViewer(undefined), false)

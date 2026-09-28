@@ -19,7 +19,7 @@ import { samePhone } from '@shared/seller.js'
  * ONE number, in one place. `SEND_LIMIT_EXEMPT` in auth/rateLimit.ts is
  * built from it too. If it changes in MSG91, it changes here.
  */
-export const DEMO_PHONE = '9579642050'
+export const DEMO_PHONE = '9999999999'
 
 export function isDemoSeller(seller: Pick<Seller, 'phone'> | undefined): boolean {
   return !!seller && samePhone(seller.phone, DEMO_PHONE)
