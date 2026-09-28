@@ -27,7 +27,7 @@ Each finding names the file and line it came from.
 | Raw IP on the seller account-close event replaced by a hashed one | Committed with the above. `npm run scrub:auth-ips` (`822bf5f`) hashes old rows; whether it has been run with `--commit` on production is not verifiable here. |
 | Package name `in.shantai.mahilabazar` | Committed and pushed to the wrapper's `sub-main` on 27 September (per `PLAY-WORK-SPLIT.md`); not verifiable from this repo. Registered in Firebase, and both `google-services.json` copies list it. |
 | Developer name "Team Zenith", registered to Sampanna Rajesh Nampalli, named in the privacy policy (both languages) | Done (`293ff15`), in `legal/en.ts` and `mr.ts`, "Who we are". |
-| MSG91 Demo Credentials for reviewers, number `9999999999` | Set up in MSG91 and tested end to end on the live site (27 September; not verifiable from this repo). |
+| MSG91 Demo Credentials for reviewers, number `9999999999` | Set up in MSG91 on 28 September, replacing `9579642050` (not verifiable from this repo). **Done** (`86e89e6`): `DEMO_PHONE` moved to the new number, so the demo guard and the send-limit exemption follow it once the API is redeployed. The old number was tested end to end on 27 September; re-test the new one after the deploy. |
 | Demo number exempt from the 3-codes-a-day send limit (`SEND_LIMIT_EXEMPT`) | Done (`192e8b1`), now built from `DEMO_PHONE` in `backend/src/demo.ts`. |
 | B1 demo safeguards, B3 reporting and blocking, B4 buyer tombstone, B5 deletion page names the app | Done; see *Blockers*. |
 | Privacy policy, Data safety, 18+ consent, misleading strings, shop images, health claims, minor screens | Done, apart from the rows marked otherwise below. |
@@ -86,7 +86,7 @@ These cannot be changed once an .aab is uploaded, or they block publishing.
 
 ### Setup: done
 
-- **MSG91 Demo Credentials** are set for **+91 `9999999999`** (28 September 2026). No SMS is sent to it, and the fixed OTP verifies it ([MSG91 guide](https://msg91.com/help/sendotp/how-to-integrate-the-new-login-with-otp-widget)). It replaced `9579642050`; `DEMO_PHONE` in `backend/src/demo.ts` moved with it, and the API must be redeployed before the new number is exempt from the send limit and kept apart from real shops.
+- **MSG91 Demo Credentials** are set for **+91 `9999999999`** (28 September 2026). No SMS is sent to it, and the fixed OTP verifies it ([MSG91 guide](https://msg91.com/help/sendotp/how-to-integrate-the-new-login-with-otp-widget)). It replaced `9579642050`; `DEMO_PHONE` in `backend/src/demo.ts` moved with it (**done**, `86e89e6`), and the API must be redeployed before the new number is exempt from the send limit and kept apart from real shops.
 - **Tested on 27 September** with the old number: a demo login is accepted end to end, including our API's check of the widget's token with MSG91 (`otp.providers.ts`). No server-side bypass is needed. Re-test with the new one after the deploy.
 - One number covers both sides: the role is chosen at sign-in (`backend/src/routes/auth.routes.ts:134`).
 - **The OTP is kept out of this repo**, which is public, and goes only in the Play Console's App access form. With it, anyone could sign in as the demo seller and buyer.

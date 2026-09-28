@@ -99,6 +99,7 @@ All twelve Track 1 tasks are on `play/server`. What Track 2 needs from them:
 
 - [x] Merge `play/server` and `play/app` into `prathamesh2`. Run `npm test` and `npm run typecheck` from the root. *Merged in `5fd8861` on 27 September. Tests were not re-run for this status check.*
 - [ ] Deploy the API to Cloud Run **when nobody is ordering**, then push `prathamesh2` so Vercel deploys the frontend and admin console. *Partly: `prathamesh2` is pushed. The Cloud Run revision is not verifiable from this repo; if it is older than the merge, the frontend's shop and buyer reports are refused.*
+- [x] Move the demo login to `9999999999`, the number now set in MSG91's Demo Credentials: `DEMO_PHONE`, its tests and the docs. The OTP stays out of this repo. *Done (`86e89e6`) on 28 September; the API deploy that carries it is still to do.*
 - [ ] Re-test the demo login (`9999999999`) on the live site, after the API deploy that carries the new `DEMO_PHONE`. *Not verifiable from this repo.*
 - [ ] Prepare the demo data: the review's *App access → Production data to prepare* checklist. *Not verifiable from this repo. The reset runbook it asks for is not in `docs/PLAY-STORE.md` yet.*
 - [ ] Fill in Play Console → App access from the review's draft text, and the Data safety form from `docs/PLAY-STORE.md`. *Not verifiable from this repo. PLAY-STORE.md was re-checked against the code on 28 September; fix the two text gaps it lists first.*
