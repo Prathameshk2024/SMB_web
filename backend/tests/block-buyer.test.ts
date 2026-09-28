@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Order } from '@shared/types.js'
-import { blockCustomer, customerIdFor, ensureCustomer, isCustomerBlocked } from '../src/db/customers.js'
+import { blockCustomer, blockedBuyers, customerIdFor, ensureCustomer, isCustomerBlocked } from '../src/db/customers.js'
 import { closeCustomer } from '../src/db/accountClose.js'
 import { createSession, findLiveSession } from '../src/auth/sessions.js'
 import { revokeAllForUser } from '../src/auth/sessions.js'
@@ -71,6 +71,33 @@ test('deleting an unblocked account removes the row, as before', () => {
   ensureCustomer(db, ID, PHONE, 'प्रिया')
   closeCustomer(db, ID, PHONE, NOW)
   assert.equal(db.customers.length, 0)
+})
+
+test('blocking a number already blocked is refused, and keeps who blocked it and why', () => {
+  const db = emptyDb()
+  blockCustomer(db, PHONE, { blocked: true, reason: 'first reason' }, BY, revoke, NOW)
+  const again = blockCustomer(db, PHONE, { blocked: true, reason: 'second reason' }, 'Someone else', revoke, NOW + 1)
+  assert.equal(again.ok, false, 'the desk is told it is already blocked, not "blocked" again')
+  assert.equal(db.customers[0]!.blockReason, 'first reason')
+  assert.equal(db.customers[0]!.blockedBy, BY)
+})
+
+test('unblocking a number that is not blocked is refused, and makes no record for it', () => {
+  const db = emptyDb()
+  const r = blockCustomer(db, PHONE, { blocked: false }, BY, revoke, NOW)
+  assert.equal(r.ok, false)
+  assert.equal(db.customers.length, 0, 'a stranger\'s number is not written down by a mistyped unblock')
+})
+
+test('the blocked list holds every blocked number, typed-in ones included, and loses one when lifted', () => {
+  const db = emptyDb()
+  ensureCustomer(db, customerIdFor('9876543210'), '9876543210', 'सीमा')
+  blockCustomer(db, PHONE, { blocked: true, reason: 'x' }, BY, revoke, NOW)
+  assert.deepEqual(blockedBuyers(db).map((b) => b.phone), [PHONE], 'only blocked numbers are listed')
+  assert.equal(blockedBuyers(db)[0]!.blockReason, 'x')
+
+  blockCustomer(db, PHONE, { blocked: false }, BY, revoke, NOW + 1)
+  assert.deepEqual(blockedBuyers(db), [])
 })
 
 test('unblocking clears every stamp', () => {

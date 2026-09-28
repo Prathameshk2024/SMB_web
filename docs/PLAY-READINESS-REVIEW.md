@@ -132,19 +132,19 @@ Choose "All or some functionality is restricted". One set of credentials covers 
 
 ## Privacy policy and Data safety form vs the code
 
-Play treats an inaccurate privacy policy or Data safety form as a policy violation, even after approval. Each row is a promise the code does not keep yet.
+Play treats an inaccurate privacy policy or Data safety form as a policy violation, even after approval. Each row is a promise the code did not keep when this review was written; rows marked "Done" are fixed in code and only need a deploy.
 
 | Area | What is promised | What the code does | Fix |
 | --- | --- | --- | --- |
-| Closed seller's listings | Her photos are erased (`legal/en.ts:137`, delete page `del.*`) | `scrubSeller()` never touches `db.products`, so her listings, their Cloudinary photos and the ingredients stay (`backend/src/db/accountClose.ts:98-148`) | Destroy her product images and remove or tombstone the listings, respecting `isBulkDelete`. Otherwise disclose that they are kept. |
-| Complaints | Kept "without contact details" (`en.ts:141`, `PLAY-STORE.md:53`) | Name and phone are copied onto each complaint (`complaints.routes.ts:43-53`) and never scrubbed | Blank `name` and `phone` and tombstone `byUserId` on account close |
+| Closed seller's listings | Her photos are erased (`legal/en.ts:137`, delete page `del.*`) | Done. `scrubProducts()` empties each listing's `PRODUCT_PII_FIELDS`, destroys the photo and leaves an `ARCHIVED` tombstone that `purgeArchived()` removes, respecting `isBulkDelete` (`6946caa`). Reports about her shop and listings lose `targetName` and `note` (`d523457`). | Deploy |
+| Complaints | Kept "without contact details" (`en.ts:141`, `PLAY-STORE.md:53`) | Done. On account close, a seller's complaints get the closed-shop name and a blank phone; a buyer's get the placeholder name, a blank phone and a tombstoned `byUserId` (`6946caa`, `backend/src/db/accountClose.ts:154-157, 313-317`) | Deploy |
 | Other fields left behind | Erased | `order.landmark`, `seller.fssai`, `seller.shopSlug` (built from her shop name) and `closeNote` survive. Review text is kept, but the policy mentions only stars and name. | Add them to the scrub and to `SELLER_PII_FIELDS`. Say in the policy that review text stays. |
 | Backups | Kept "for a limited time" (`en.ts:144`) | Monthly database files are kept for good and the backup Cloudinary keeps every photo (`docs/BACKUP.md:32-34`). The delete page does not mention backups. | Prune (for example, monthly files dropped after 12 months) and state the real period, on the delete page too |
 | Raw IP addresses | Only scrambled (hashed) IPs are kept (`en.ts:51`) | Fixed in `c48dd96`: the seller account-close event now hashes the IP. Rows written before the fix may still hold raw IPs. | Deploy, then scrub existing `authEvents` rows with `detail: 'account.close'` once |
 | Hosting logs | Not mentioned | Cloud Run and Vercel keep request logs with IP and browser details (30 days by default) | One sentence in the policy with the retention period |
 | Service providers | Google Cloud, Firebase, Cloudinary, Vercel, MSG91 (`en.ts:116-126`) | GitHub Actions reads the whole live database every night for backups (`.github/workflows/backup.yml:26`) | Add GitHub to the provider list |
 | Data safety form | `docs/PLAY-STORE.md:29-44` | Also collected: account ids (Personal info → User IDs), and app activity measured for the readiness score (`shared/src/readiness.ts:96-107`) | Declare User IDs and App interactions (Analytics) |
-| Age 18+ | Target audience 18 and over | Age is optional for sellers and never asked of buyers; the consent tick does not mention age | Add "and I am 18 or older" to both consent lines |
+| Age 18+ | Target audience 18 and over | Done. Both consent ticks say "and I am 18 or older" (`4b5ae81`), and so does the agree button on `PolicyGate`, where people who registered earlier accept. `POLICY_VERSION` moved to 2026-09-27 (`048bcaa`), so everyone is asked again. | Deploy |
 | Security log retention | Deleted after 90 days | The prune runs only when a new event is written (`backend/src/auth/events.ts:60`) | Add `pruneAuthEvents` to the 15-minute housekeeping timer |
 | ₹50 payer UPI ID | Not listed (`en.ts:70`) | `payerUpi` is stored (`sellers.routes.ts:601`) | Add "the UPI ID you paid from". Revisit after the ₹50 decision. |
 

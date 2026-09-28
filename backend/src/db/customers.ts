@@ -404,7 +404,24 @@ export function blockCustomer(
     }
   }
 
-  const customer = ensureCustomer(db, customerIdFor(digits), digits)
+  // Say what is true rather than "done": blocking again used to answer
+  // "Buyer blocked" and quietly overwrite who blocked her and why, and
+  // unblocking a number nobody blocked made a customer row for a stranger.
+  const existing = findCustomer(db, customerIdFor(digits))
+  if (blocked && existing?.blocked) {
+    return {
+      ok: false, status: 409, error: 'This number is already blocked',
+      messageMr: 'हा नंबर आधीच बंद केलेला आहे',
+    }
+  }
+  if (!blocked && !existing?.blocked) {
+    return {
+      ok: false, status: 404, error: 'This number is not blocked',
+      messageMr: 'हा नंबर बंद केलेला नाही',
+    }
+  }
+
+  const customer = existing ?? ensureCustomer(db, customerIdFor(digits), digits)
   if (blocked) {
     customer.blocked = true
     customer.blockedAt = new Date(now).toISOString()
@@ -419,6 +436,34 @@ export function blockCustomer(
   }
   customer.updatedAt = new Date(now).toISOString()
   return { ok: true, customer }
+}
+
+/**
+ * Every blocked number, newest block first. A number blocked by typing it
+ * in was never reported, so without this list the desk had no way to see
+ * it again - or to lift it.
+ */
+export interface BlockedBuyer {
+  customerId: string
+  name: string
+  phone: string
+  blockReason?: string
+  blockedAt?: string
+  blockedBy?: string
+}
+
+export function blockedBuyers(db: Db): BlockedBuyer[] {
+  return db.customers
+    .filter((c) => c.blocked)
+    .map((c) => ({
+      customerId: c.id,
+      name: c.name ?? '',
+      phone: c.phone,
+      blockReason: c.blockReason,
+      blockedAt: c.blockedAt,
+      blockedBy: c.blockedBy,
+    }))
+    .sort((a, b) => (b.blockedAt ?? '').localeCompare(a.blockedAt ?? ''))
 }
 
 /** Read at sign-in and at checkout: a blocked number gets no session and places no order. */

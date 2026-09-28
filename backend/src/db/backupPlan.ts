@@ -1,3 +1,4 @@
+import { gunzipSync } from 'node:zlib'
 import { parseCloudinaryUrl, parseServiceAccount, type CloudinaryConfig } from '../config.js'
 import { COLLECTIONS, isBulkDelete } from './firestore.js'
 
@@ -268,6 +269,37 @@ export function joinSnapshot(parts: { part: number; parts: number; data: Uint8Ar
     throw new Error(`the copy is incomplete: ${sorted.length} of ${expected} parts`)
   }
   return Buffer.concat(sorted.map((p) => p.data))
+}
+
+/**
+ * Is the copy that came back from the backup project the copy that went in?
+ *
+ * The backup keys live only in GitHub, so no laptop ever reads a stored copy
+ * until the day one is needed - and a copy nobody has read back is a hope,
+ * not a backup. The nightly run therefore reads tonight's copy straight back
+ * and asks this: the same bytes, unpacking to the same number of documents
+ * in every collection the live project had. A null is a copy that restores.
+ */
+export function readBackProblem(
+  stored: Uint8Array,
+  sent: Uint8Array,
+  liveCounts: Record<string, number>,
+): string | null {
+  if (Buffer.compare(Buffer.from(stored), Buffer.from(sent)) !== 0) {
+    return `read back ${stored.length} bytes, but ${sent.length} were stored and they differ`
+  }
+  let json: unknown
+  try {
+    json = JSON.parse(gunzipSync(stored).toString('utf8'))
+  } catch (err) {
+    return `does not unpack as a database copy: ${(err as Error).message}`
+  }
+  const { collections, problems } = parseSnapshot(json)
+  if (problems.length) return problems.join('; ')
+  const wrong = Object.entries(liveCounts)
+    .filter(([name, n]) => (collections.get(name)?.size ?? -1) !== n)
+    .map(([name, n]) => `${name}: ${collections.get(name)?.size ?? 'missing'} in the copy, ${n} live`)
+  return wrong.length ? wrong.join('; ') : null
 }
 
 /**

@@ -59,6 +59,14 @@ into parts once it outgrows Firestore's 1 MiB document limit. The mirror and
 a restore only touch the collections the app uses, so neither ever reads,
 copies or empties `snapshots`, and the app never loads it.
 
+**Every night proves its own copy.** The backup keys live only in GitHub, so
+no laptop reads a stored copy until the day one is needed. Instead the run
+reads tonight's copy straight back, unpacks it, and checks it holds the same
+number of documents in every collection that live did (`readBackProblem`);
+the log says `read back and checked`, and a copy that fails turns the run
+red. That covers everything a `--snapshot` restore does except the final
+write.
+
 Backup A was set up on 24 September 2026. **The logins for the backup
 accounts must be known to more than one person** — a backup nobody can sign in
 to is not a backup.
@@ -249,6 +257,13 @@ one) and restores into whatever `FIREBASE_SERVICE_ACCOUNT` points at, exactly
 as it restores a local file (below). **It reports and writes nothing unless
 `--commit` is passed.**
 
+The backup key is only in GitHub, and a secret there cannot be read back out.
+For a restore, make a new key for the backup project's service account
+(Firebase console → Project settings → Service accounts → Generate new
+private key), put it in `backend/.env` as `BACKUP_TARGETS=a` and
+`BACKUP_A_FIREBASE_SERVICE_ACCOUNT`, and **delete the key afterwards** — both
+the file and, in Google Cloud → IAM → Service accounts → Keys, the key itself.
+
 ```bash
 npm run restore -- --snapshot list
 npm run restore -- --snapshot firestore-2026-09-20T21-30.json.gz
@@ -378,6 +393,7 @@ done.**
 | The log says | Meaning |
 |---|---|
 | `FIREBASE_SERVICE_ACCOUNT is not valid JSON or base64 JSON` and `target "a" has a Firebase key, but the live Firebase is not configured` | The `LIVE_FIREBASE_SERVICE_ACCOUNT` secret was pasted with something extra — the `FIREBASE_SERVICE_ACCOUNT=` prefix, or quotes. Copy the exact value with `node --env-file=backend/.env -e "process.stdout.write(process.env.FIREBASE_SERVICE_ACCOUNT)" \| clip` and update the secret. |
+| `copies → <project>: … did not read back as stored` | Tonight's copy came back different from what was stored, or short of documents live had. The mirror still ran and older copies are untouched; the reason follows on the line. Look before trusting tonight's copy for a restore. |
 | `copies → <project>: …` | Storing or pruning the dated copies failed; the mirror still ran. Read the Firestore error — usually the backup project's daily write limit, or a missing Firestore database. Until a run succeeds, nothing is being pruned. |
 | `cloudinary not configured` | One of the three `LIVE_CLOUDINARY_*` secrets is missing or misspelled. |
 | `the live project has shrunk since this backup was taken` | A collection lost more than half its documents. **Find out why before doing anything else** — this is what 10 September looked like. If the shrink was deliberate (a purge), run once with `ALLOW_BULK_DELETE=true`. |

@@ -7,7 +7,7 @@ import { when } from '../lib/format.js'
 import { TopBar } from '../components/Shell.js'
 import { IconComplaints } from '../components/icons.js'
 import { BuyerCloseCard } from '../components/CloseAccount.js'
-import { BlockByNumberCard, ReportedBuyers } from '../components/Buyers.js'
+import { BlockByNumberCard, BlockedBuyers, ReportedBuyers } from '../components/Buyers.js'
 import { Button, Card, EmptyState, ErrorNote, Loading, Pill, useAsync } from '../components/ui.js'
 import { useToast } from '../store/ToastContext.js'
 
@@ -30,6 +30,9 @@ export function Complaints() {
   const [tab, setTab] = useState<Tab>('OPEN')
   const [data, loading, error, reload] = useAsync(() => api.complaints(tab), [tab])
   const rows = data?.complaints ?? []
+  // One counter for the buyer cards: a block made on one shows on the others.
+  const [buyersVersion, setBuyersVersion] = useState(0)
+  const buyersChanged = () => setBuyersVersion((n) => n + 1)
 
   return (
     <>
@@ -47,8 +50,9 @@ export function Complaints() {
         {/* A buyer has no page of her own, so everything about buyers is
             here: what sellers reported, the block, and the close that
             deletion requests by phone or email end in. */}
-        <ReportedBuyers />
-        <BlockByNumberCard />
+        <ReportedBuyers version={buyersVersion} onChanged={buyersChanged} />
+        <BlockByNumberCard onChanged={buyersChanged} />
+        <BlockedBuyers version={buyersVersion} onChanged={buyersChanged} />
         <BuyerCloseCard />
 
         <ErrorNote error={error} />

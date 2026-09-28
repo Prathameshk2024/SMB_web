@@ -34,7 +34,7 @@ export const GRIEVANCE_OFFICER = {
 /** The college office: everyday help, and deletion for someone who cannot sign in. */
 export const COLLEGE_OFFICE = {
   phone: '9420488874',
-  email: 'principal.jassca@gmail.com',
+  email: 'principal.jascca@gmail.com',
 } as const
 
 /** Where a dispute is heard. */
