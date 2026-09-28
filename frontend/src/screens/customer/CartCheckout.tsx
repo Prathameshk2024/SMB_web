@@ -4,7 +4,7 @@ import type { Address, Seller } from '@shared/types.js'
 import { OrderRatings } from '../../components/Reviews.js'
 import { OrderStatusBox } from '../../components/OrderTracker.js'
 import {
-  STATUS_STYLE, awaitingCustomerPayment, statusLabelKey,
+  STATUS_STYLE, awaitingCustomerPayment, buyerMayCorrectUtr, statusLabelKey,
 } from '@shared/orderFlow.js'
 import { buildUpiLink, isMaharashtraPincode } from '@shared/seller.js'
 import { isValidUtr, normalizeUtr, utrProblem } from '@shared/payment.js'
@@ -642,6 +642,7 @@ export function TrackOrder() {
   const [data, loading, setData] = useAsync(() => api.order(orderId!), [orderId])
   const [utr, setUtr] = useState('')
   const [payErr, setPayErr] = useState('')
+  const [fixingUtr, setFixingUtr] = useState(false)
 
 
   /**
@@ -687,6 +688,7 @@ export function TrackOrder() {
     try {
       await api.payOrder(order.id, normalizeUtr(utr))
       setData(await api.order(order.id))
+      setFixingUtr(false)
       toast(t('ok.paymentSubmitted'))
     } catch (e) {
       setPayErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('err.network'))
@@ -694,6 +696,27 @@ export function TrackOrder() {
       setPaying(false)
     }
   }
+
+  const utrForm = (
+    <>
+      <Field label={t('cus.enterUtr')} hint={t('pay.utrHint')} error={payErr} required htmlFor="orderUtr">
+        <TextInput
+          id="orderUtr"
+          inputMode="numeric"
+          value={utr}
+          error={!!payErr}
+          onChange={(e) => { setUtr(e.target.value.replace(/\s/g, '')); setPayErr('') }}
+          placeholder="512309887711"
+        />
+      </Field>
+      {/* A live button under a number that cannot be a UTR reads as
+          "this is fine, press me". It is the last thing standing
+          between her and an order nobody can match to a payment. */}
+      <Button onClick={() => void pay()} disabled={paying || !isValidUtr(utr)}>
+        {paying ? t('common.loading') : t('cus.paidSubmit')}
+      </Button>
+    </>
+  )
 
   return (
     <>
@@ -840,22 +863,7 @@ export function TrackOrder() {
 
               {backFromUpi && <Notice tone="warn">{t('pay.backAskUtr')}</Notice>}
 
-              <Field label={t('cus.enterUtr')} hint={t('pay.utrHint')} error={payErr} required htmlFor="orderUtr">
-                <TextInput
-                  id="orderUtr"
-                  inputMode="numeric"
-                  value={utr}
-                  error={!!payErr}
-                  onChange={(e) => { setUtr(e.target.value.replace(/\s/g, '')); setPayErr('') }}
-                  placeholder="512309887711"
-                />
-              </Field>
-              {/* A live button under a number that cannot be a UTR reads as
-                  "this is fine, press me". It is the last thing standing
-                  between her and an order nobody can match to a payment. */}
-              <Button onClick={() => void pay()} disabled={paying || !isValidUtr(utr)}>
-                {paying ? t('common.loading') : t('cus.paidSubmit')}
-              </Button>
+              {utrForm}
             </div>
           </Card>
         )}
@@ -865,6 +873,16 @@ export function TrackOrder() {
             {t('pay.utr')}: <span className="num">{order.paymentUtr}</span>
           </Notice>
         )}
+        {/* A digit typed wrong is fixable until the seller says the money
+            arrived. The box starts with the number she sent, because the
+            fix is almost always one digit, not a new number. */}
+        {buyerMayCorrectUtr(order) && (fixingUtr ? (
+          <Card><div className="stack-sm">{utrForm}</div></Card>
+        ) : (
+          <Button variant="ghost" onClick={() => { setUtr(order.paymentUtr ?? ''); setPayErr(''); setFixingUtr(true) }}>
+            {t('cus.utrChange')}
+          </Button>
+        ))}
 
         <Card>
           <div className="stack-sm">

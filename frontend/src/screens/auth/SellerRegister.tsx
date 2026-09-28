@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Seller } from '@shared/types.js'
-import { EDUCATION_LEVELS, FSSAI_DIGITS, fssaiProblem, isValidPincode, isValidUpi } from '@shared/seller.js'
+import { EDUCATION_LEVELS, FSSAI_DIGITS, fssaiProblem, isValidPincode, isValidUpi, phoneInput } from '@shared/seller.js'
 import { upiProblem } from '@shared/payment.js'
 import { VILLAGES, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import {
@@ -339,9 +339,9 @@ export default function SellerRegister() {
               <TextInput
                 id="wa"
                 inputMode="numeric"
-                maxLength={10}
+                maxLength={16}
                 value={d.whatsapp}
-                onChange={(e) => set('whatsapp', e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => set('whatsapp', phoneInput(e.target.value))}
                 placeholder={phone}
               />
             </Field>

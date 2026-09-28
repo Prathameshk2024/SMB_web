@@ -190,6 +190,18 @@ export function awaitingCustomerPayment(
 }
 
 /**
+ * The buyer may still fix the UTR she sent: she has claimed the payment and
+ * the seller has not confirmed it. A digit typed wrong otherwise left an order
+ * nobody could match to a payment, with no way to say so. Once the seller
+ * confirms, the number is settled.
+ */
+export function buyerMayCorrectUtr(
+  o: Pick<Order, 'paymentMode' | 'paymentStatus' | 'status'>,
+): boolean {
+  return o.paymentMode === 'UPI' && o.paymentStatus === 'UPI_SUBMITTED' && o.status === 'ACCEPTED'
+}
+
+/**
  * The seller has not been paid yet, so they do not pack.
  *
  * A typed reference number is a claim, not money - only the seller's own

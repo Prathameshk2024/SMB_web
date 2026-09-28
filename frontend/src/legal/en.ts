@@ -99,7 +99,7 @@ export const en: LegalSet = {
         body: [
           {
             list: [
-              'Anyone, without signing in, can see a seller\'s public shop card: name, photo, shop name, SMB ID, village, delivery terms, the pincodes she delivers to, her UPI ID and QR code, and her rating. They can also see her live products and their reviews. A reviewer is shown by first name only.',
+              'Anyone, without signing in, can see a seller\'s public shop card: name, photo, shop name, SMB ID, village, delivery terms, the pincodes she delivers to, her UPI ID and QR code, her FSSAI number if she sells food and gave one, and her rating. They can also see her live products and their reviews. A reviewer is shown by first name only.',
               'A seller\'s phone number is shown only to a buyer who has placed an order with her, on that order.',
               'A seller sees the name, phone number and delivery address of each buyer who orders from her.',
               'A seller never learns who reported her listing.',
@@ -415,7 +415,7 @@ export const en: LegalSet = {
           {
             list: [
               'Food businesses in India must have FSSAI registration or a licence. Getting and keeping it is your responsibility. For a small home business, basic FSSAI registration is enough, and the college can help you apply.',
-              'If you have an FSSAI number, enter it when you register. It is kept with your shop details, where programme staff can see it.',
+              'If you have an FSSAI number, enter it when you register. It is printed on your food listings, so buyers can check it against the FSSAI register.',
               'Make food cleanly and safely, and mark packets with the product name, weight or quantity, price, date made and best-before date.',
             ],
           },
@@ -441,7 +441,7 @@ export const en: LegalSet = {
         id: 'public',
         heading: 'What buyers see about you',
         body: [
-          'Your shop card is public: name, photo, shop name, SMB ID, village, delivery terms, the pincodes you deliver to, UPI ID and QR code, and the rating from your products\' reviews. Your phone number is shown only to buyers who have ordered from you, on their order. The Privacy Policy has the rest.',
+          'Your shop card is public: name, photo, shop name, SMB ID, village, delivery terms, the pincodes you deliver to, UPI ID and QR code, your FSSAI number on food listings, and the rating from your products\' reviews. Your phone number is shown only to buyers who have ordered from you, on their order. The Privacy Policy has the rest.',
         ],
       },
       {

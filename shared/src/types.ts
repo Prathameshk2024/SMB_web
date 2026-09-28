@@ -386,7 +386,7 @@ export type PublicSeller = Pick<
   Seller,
   | 'id' | 'womenBizId' | 'name' | 'photo' | 'shopName' | 'shopSlug' | 'village'
   | 'deliveryFee' | 'freeDeliveryAbove' | 'minOrder' | 'pincodes'
-  | 'upiId' | 'upiQrReady' | 'upiQrUrl'
+  | 'upiId' | 'upiQrReady' | 'upiQrUrl' | 'fssai'
   | 'rating' | 'ratingCount'
 >
 

@@ -185,11 +185,13 @@ both flows, was `length < 6`.
   reportable.
 - **The same UTR may not be claimed on a second order.** One transaction has
   one RRN. Subscription payments flag duplicates for the admin; an order has no
-  admin in the loop, so `POST /orders/:id/pay` refuses it outright. The
-  duplicate check skips the order's own UTR, but that exemption is never
-  reached today: once one is posted the order is `UPI_SUBMITTED`, no longer
-  `awaitingCustomerPayment()`, and a second post answers 409 — a buyer who
-  mistyped a digit cannot correct it from her screen.
+  admin in the loop, so `POST /orders/:id/pay` refuses it outright.
+- **A mistyped UTR can be corrected until the seller confirms.**
+  `buyerMayCorrectUtr()` (UPI + `UPI_SUBMITTED` + `ACCEPTED`) lets the same
+  route take a new number; the buyer's screen offers "Wrong number? Change it"
+  under the submitted one. A changed number notifies the seller again, since
+  she may already have looked for the old one; the same number sent again
+  changes nothing and notifies nobody. Her `confirm-payment` settles it.
 - **`upiProblem()` is not an allow-list, on purpose.** `KNOWN_UPI_HANDLES`
   exists to catch a typo in the half of the address she cannot proofread: she
   can read "sunita" back, but "ybll" looks exactly as right as "ybl". A handle
@@ -290,7 +292,7 @@ approved yet has been told nothing by a screen that said "published".
 
 A hidden listing answers **404, not 403**, and the same 404 as an id that never existed — distinguishing them confirms that a draft she has not finished is there. `backend/tests/catalog-visibility.test.ts` holds the rule.
 
-**A seller leaves the API unauthenticated only as `PublicSeller`**, built by `publicSeller()` in `backend/src/db/publicSeller.ts` and used by the catalogue list, `GET /catalog/products/:id` and `GET /sellers/:id`. It is an **allow-list**: name, photo, shop, SMB ID, village, delivery terms, pincodes, UPI ID/QR, and the rating derived from reviews. It replaced a deny-list (`publicView`) that stripped seven named fields, and the product route, which sent her whole record — phone, admin notices, block reason, readiness answers — to anyone with a product id. Her phone reaches a buyer only on their own order, or one tap at a time through the signed-in `GET /catalog/sellers/:id/contact` (see *One seller per cart*). `backend/tests/public-seller.test.ts` asserts the exact key set, so a new field on the card is a decision, not an accident.
+**A seller leaves the API unauthenticated only as `PublicSeller`**, built by `publicSeller()` in `backend/src/db/publicSeller.ts` and used by the catalogue list, `GET /catalog/products/:id` and `GET /sellers/:id`. It is an **allow-list**: name, photo, shop, SMB ID, village, delivery terms, pincodes, UPI ID/QR, FSSAI number (printed on her food listings; the seller agreement says so), and the rating derived from reviews. It replaced a deny-list (`publicView`) that stripped seven named fields, and the product route, which sent her whole record — phone, admin notices, block reason, readiness answers — to anyone with a product id. Her phone reaches a buyer only on their own order, or one tap at a time through the signed-in `GET /catalog/sellers/:id/contact` (see *One seller per cart*). `backend/tests/public-seller.test.ts` asserts the exact key set, so a new field on the card is a decision, not an accident.
 
 ### Editing a published product
 

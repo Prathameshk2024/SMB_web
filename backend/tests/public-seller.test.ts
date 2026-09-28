@@ -38,7 +38,7 @@ function seller(): Seller {
  */
 test('the public card carries exactly the allow-listed fields', () => {
   assert.deepEqual(Object.keys(publicSeller(seller(), NO_RATING)).sort(), [
-    'deliveryFee', 'freeDeliveryAbove', 'id', 'minOrder', 'name', 'photo', 'pincodes',
+    'deliveryFee', 'freeDeliveryAbove', 'fssai', 'id', 'minOrder', 'name', 'photo', 'pincodes',
     'rating', 'ratingCount', 'shopName', 'shopSlug', 'upiId', 'upiQrReady', 'upiQrUrl',
     'village', 'womenBizId',
   ])

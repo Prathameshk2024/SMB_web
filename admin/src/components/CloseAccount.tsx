@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { phoneInput } from '@shared/seller.js'
 import { ADMIN_CLOSE_CHANNELS, ADMIN_CLOSE_NOTE_MAX, type AdminCloseChannel } from '@shared/accountClose.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { ApiError, api, type AdminCloseBody } from '../lib/api.js'
@@ -140,9 +141,9 @@ export function BuyerCloseCard() {
           <input
             className="input mono"
             inputMode="numeric"
-            maxLength={10}
+            maxLength={16}
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+            onChange={(e) => setPhone(phoneInput(e.target.value))}
           />
         </div>
         <CloseFields value={fields} onChange={setFields} />

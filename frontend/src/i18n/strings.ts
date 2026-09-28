@@ -141,13 +141,15 @@ const mr: Record<string, string> = {
   'reg.doneNext.apk': 'कार्यालयाने तुमचे दुकान सुरू केल्यावर तुम्ही 5 उत्पादने टाकू शकाल.',
   'reg.payNow.apk': 'पुढे',
   'prod.slotsFullBody.apk': 'आणखी जागा मिळाल्यावर नवीन उत्पादने टाकता येतील.',
+  'prod.slotsFullErr.apk': 'सर्व जागा भरल्या आहेत. आणखी जागा मिळाल्यावर नवीन उत्पादने टाकता येतील.',
+  'prod.expiredErr.apk': 'तुमची वर्गणी संपली आहे. नूतनीकरण झाल्यावर उत्पादने पाठवता येतील.',
   'prof.buyMore.apk': 'माझी नोंदणी',
   'biz.addSlots.apk': 'माझी नोंदणी',
   'lp.wl4.apk': 'सुरुवातीलाच 5 उत्पादनांसाठी जागा.',
   'wt.biz2.apk': 'एका जागेत एक वस्तू. सर्व जागा भरल्या की नवीन उत्पादनासाठी आणखी जागा लागतात.',
   'help.faq1.apk': 'माझे दुकान अजून सुरू झाले नाही',
   'close.sel.whatGoes.apk': 'तुमची {n} उत्पादने आणि तुमच्या दुकानाची माहिती काढली जाईल. नोंदणीचे शुल्क परत मिळत नाही.',
-  'del.whatStays.apk': 'झालेल्या ऑर्डरची आणि भरलेल्या शुल्काची नोंद राहते. ती नोंद समोरच्या व्यक्तीचीही आहे आणि हिशोबासाठी ठेवावी लागते. त्यात तुमचा फोन नंबर किंवा पत्ता राहत नाही.',
+  'del.whatStays.apk': 'झालेल्या ऑर्डरची आणि त्यांवर ग्राहकांनी लिहिलेल्या अभिप्रायांची, तसेच भरलेल्या शुल्काची नोंद राहते. ती नोंद समोरच्या व्यक्तीचीही आहे आणि हिशोबासाठी ठेवावी लागते. तक्रारी कशा सोडवल्या याची नोंदही राहते. यांपैकी कशातही तुमचा फोन नंबर किंवा पत्ता राहत नाही. गैरवापरामुळे ब्लॉक केलेल्या ग्राहकाचा नंबर मात्र ब्लॉक टिकावा म्हणून ठेवला जातो. पुसलेली माहिती बॅकअपमधून 12 महिन्यांत निघून जाते.',
   'act.waitTitle': 'तुमचे दुकान अजून सुरू झालेले नाही',
   'act.waitBody': 'शांताई महिला बाजारचे कार्यालय दुकान सुरू करते. ते झाले की इथे आणि तुमच्या सूचनांमध्ये लगेच दिसेल.',
   'sub.validUntil': 'वर्गणी {date} पर्यंत सुरू आहे',
@@ -505,9 +507,9 @@ const mr: Record<string, string> = {
   'prod.preview': 'असे दिसेल', 'prod.publish': 'तपासणीसाठी पाठवा',
   'prod.reviewNote': 'प्रशासक तपासून मंजूर केल्यावर तुमचे उत्पादन ग्राहकांना दिसेल.',
   'prod.saveDraft': 'नंतर पूर्ण करते',
-  'prod.liveNow': 'लगेच प्रकाशित होईल',
+  'prod.goesForCheck': 'तपासणीसाठी जाईल',
   'prod.responsibility': 'तुमचा मोबाईल नंबर, UPI आणि SMB क्रमांक आमच्याकडे नोंद आहेत. चुकीची किंवा फसवी वस्तू टाकल्यास दंड भरावा लागेल आणि खाते बंद होऊ शकते.',
-  'prod.willUseSlot': 'हे प्रकाशित केल्यावर {used} / {total} जागा वापरल्या जातील.',
+  'prod.willUseSlot': 'हे पाठवल्यावर {used} / {total} जागा वापरल्या जातील.',
   'prod.noProducts': 'अजून उत्पादन नाही', 'prod.noProductsSub': 'तुमचे पहिले उत्पादन टाका',
   'prod.inStock': 'शिल्लक आहे', 'prod.outOfStock': 'संपले आहे',
   'prod.live': 'चालू', 'prod.draft': 'अपूर्ण', 'prod.pending': 'तपासणी सुरू',
@@ -520,6 +522,10 @@ const mr: Record<string, string> = {
   'prod.deleteDraftConfirm': 'हे अपूर्ण उत्पादन अजून पाठवलेले नाही, त्यामुळे त्याला जागा लागत नाही. काढले तर भरलेली माहिती परत मिळणार नाही.',
   'prod.slotsFullTitle': 'सर्व 5 जागा भरल्या आहेत',
   'prod.slotsFullBody': 'आणखी उत्पादने टाकण्यासाठी 50 रुपये भरा आणि आणखी 5 जागा मिळवा.',
+  // Said when the server refuses a submission the screen let through - the
+  // slots filled on another phone, or the six months ended mid-wizard.
+  'prod.slotsFullErr': 'सर्व जागा भरल्या आहेत. आणखी 5 जागांसाठी 50 रुपये भरा.',
+  'prod.expiredErr': 'तुमची वर्गणी संपली आहे. ₹50 भरून नूतनीकरण केल्यावर उत्पादने पाठवता येतील.',
 
   // ---- pincode & serviceability ----------------------------------------
   'pin.ask': 'तुमचा पिनकोड टाका',
@@ -713,6 +719,7 @@ const mr: Record<string, string> = {
   'cus.amountToPay': 'भरायची रक्कम',
   'cus.paidSubmit': 'पैसे भरले, पुढे पाठवा',
   'cus.paymentChecking': 'विक्रेती पैसे आले का ते तपासत आहेत',
+  'cus.utrChange': 'क्रमांक चुकला? बदला',
   'ord.outsideAreaSub': 'पिनकोड {pincode}. तुम्ही तिथे पोहोचवू शकत असाल तरच ऑर्डर स्वीकारा.',
 
   // ---- the seller's saved addresses -------------------------------------------
@@ -1005,13 +1012,15 @@ const en: Record<string, string> = {
   'reg.doneNext.apk': 'Once the office switches your shop on, you can add 5 products.',
   'reg.payNow.apk': 'Next',
   'prod.slotsFullBody.apk': 'You can add new products once you have more slots.',
+  'prod.slotsFullErr.apk': 'All your slots are full. You can add new products once you have more slots.',
+  'prod.expiredErr.apk': 'Your subscription has ended. You can send products in once it is renewed.',
   'prof.buyMore.apk': 'My registration',
   'biz.addSlots.apk': 'My registration',
   'lp.wl4.apk': 'Room for 5 products from the start.',
   'wt.biz2.apk': 'One slot holds one product. When they are all in use, a new product needs more slots.',
   'help.faq1.apk': 'My shop has not been switched on yet',
   'close.sel.whatGoes.apk': 'Your {n} listing(s) and everything about your shop. The registration fee is not returned.',
-  'del.whatStays.apk': 'A record of the orders that happened and of fees paid. That record belongs to the person on the other side of the sale as well, and the accounts have to hold it. It no longer carries your phone number or your address.',
+  'del.whatStays.apk': "A record of the orders that happened, the reviews buyers wrote on them, and fees paid. That record belongs to the person on the other side of the sale as well, and the accounts have to hold it. Complaints are kept too, as a record of how they were handled. None of it carries your phone number or your address any more. A buyer's number that was blocked for misuse is kept, only so the block still holds. Deleted information leaves our backups within 12 months.",
   'act.waitTitle': 'Your shop is not switched on yet',
   'act.waitBody': 'The Shantai Mahila Bazar office switches shops on. As soon as it does, you will see it here and in your updates.',
   'sub.validUntil': 'Subscription active until {date}',
@@ -1350,9 +1359,9 @@ const en: Record<string, string> = {
   'prod.preview': 'This is how it will look', 'prod.publish': 'Send for checking',
   'prod.reviewNote': 'An admin checks it first. Once approved, customers can see it.',
   'prod.saveDraft': 'Finish later',
-  'prod.liveNow': 'Goes live straight away',
+  'prod.goesForCheck': 'Goes in for checking',
   'prod.responsibility': 'Your phone number, UPI and SMB ID are on record with us. Listing something false or unsafe means a fine, and your account can be closed.',
-  'prod.willUseSlot': 'Publishing this uses {used} of {total} slots.',
+  'prod.willUseSlot': 'Sending this in uses {used} of {total} slots.',
   'prod.noProducts': 'No products yet', 'prod.noProductsSub': 'Add your first product',
   'prod.inStock': 'In stock', 'prod.outOfStock': 'Out of stock',
   'prod.live': 'Live', 'prod.draft': 'Draft', 'prod.pending': 'Being checked',
@@ -1365,6 +1374,8 @@ const en: Record<string, string> = {
   'prod.deleteDraftConfirm': 'This draft was never sent in, so it holds no slot. Removing it throws away what you filled in.',
   'prod.slotsFullTitle': 'All 5 slots are full',
   'prod.slotsFullBody': 'Pay 50 rupees for 5 more slots.',
+  'prod.slotsFullErr': 'All your slots are full. Pay 50 rupees for 5 more slots.',
+  'prod.expiredErr': 'Your subscription has ended. Once you renew for ₹50, you can send products in.',
 
   // ---- pincode & serviceability ----------------------------------------
   'pin.ask': 'Enter your pincode',
@@ -1546,6 +1557,7 @@ const en: Record<string, string> = {
   'cus.amountToPay': 'Amount to pay',
   'cus.paidSubmit': 'I have paid',
   'cus.paymentChecking': 'She is checking that the money arrived',
+  'cus.utrChange': 'Wrong number? Change it',
   'ord.outsideAreaSub': 'Pincode {pincode}. Accept only if you can get there.',
 
   // ---- the seller's saved addresses -------------------------------------------

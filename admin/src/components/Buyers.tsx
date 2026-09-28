@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { phoneInput } from '@shared/seller.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { api, type ReportedBuyer } from '../lib/api.js'
 import { when } from '../lib/format.js'
@@ -171,9 +172,9 @@ export function BlockButton({
             <input
               className="input mono"
               inputMode="numeric"
-              maxLength={10}
+              maxLength={16}
               value={typed}
-              onChange={(e) => setTyped(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setTyped(phoneInput(e.target.value))}
             />
           </div>
         )}

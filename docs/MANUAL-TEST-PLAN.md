@@ -144,7 +144,7 @@ Profile B, signed out. Start at http://192.168.31.110:5173.
 | ☐ A10 | Visit `/shop/cart` (or `/shop/seller/s1`) while signed out | Redirected to `/` — the shop pages need a customer session |
 | ☐ A11 | Visit `/nonsense-route` | Redirected to `/` |
 | ☐ A12 | Visit `/register/seller` with no ticket | Redirected to `/login/seller`, not a dead form |
-| ☐ A13 | Measure text and buttons in devtools | Body text ≥16px, primary buttons at the `--btn-h` token (54px in `theme.css` today, although CLAUDE.md says 56 — record which is intended), tap targets ≥44px. (Known gap, 2026-09-28: the landing header's language buttons are 34px tall with ~13px text — log it) |
+| ☐ A13 | Measure text and buttons in devtools | Body text ≥16px, primary buttons at the `--btn-h` token (56px), tap targets ≥44px. (Known gap, 2026-09-28: the landing header's language buttons are 34px tall with ~13px text — log it) |
 | ☐ A14 | Look at any price | Latin digits (`₹500`), never `५००` |
 | ☐ A15 | Devtools → Network, filter Font | **No web font requests.** Marathi renders from the system font |
 | ☐ A16 | Look for a hamburger menu anywhere | There is none |
@@ -531,7 +531,7 @@ The buyer sees four stages, not five states.
 | ☐ I11b | The buyer's order screen now | "आता पैसे भरा": the amount printed as "भरायची रक्कम ₹…", a QR carrying that amount, the UPI ID with a copy icon (the ID wraps beside the icon, never pushed under it), the numbered screenshot-and-scan steps, and a UTR box. There is no "Pay" button that opens a UPI app |
 | ☐ I11c | Type an 11-digit UTR | "पैसे भरले, पुढे पाठवा" stays disabled. Via curl: 400 "UTR 12 अंकी असतो, तुम्ही 11 अंक टाकले. UPI ॲपमध्ये तो पुन्हा पहा" |
 | ☐ I11d | Via curl, submit on this order a UTR already used on **another** order | 409 "हा क्रमांक दुसऱ्या ऑर्डरसाठी वापरला आहे. …" |
-| ☐ I11e | Submit a valid 12-digit UTR | The buyer sees "विक्रेती पैसे आले का ते तपासत आहेत" with the UTR. A second submit is 409 |
+| ☐ I11e | Submit a valid 12-digit UTR | The buyer sees "विक्रेती पैसे आले का ते तपासत आहेत" with the UTR, and "क्रमांक चुकला? बदला" under it. Changing one digit and sending it again replaces the UTR and the seller gets the "buyer says I paid" notification again; the same number again changes nothing. After the seller confirms the payment, the button is gone and a submit is 409 |
 | ☐ I12 | The seller's side at UPI_SUBMITTED | The order is in her action queue as "Did the money arrive?", showing the UTR and a "Yes, money received" button |
 | ☐ I12a | She confirms | Payment status UPI_CONFIRMED, as a **separate** action from advancing the order; "Ready to send" appears. The buyer's UPI pill turns green |
 | ☐ I12b | Via curl, `POST /api/orders/<id>/pay` on a PLACED order | 409 "या ऑर्डरसाठी आत्ता पैसे भरायचे नाहीत" |
@@ -664,7 +664,7 @@ Run these across both apps.
 | ☐ M5 | Every confirmation dialog | States the consequence. No bare "Are you sure?" |
 | ☐ M6 | Every price, count and pincode | Latin digits |
 | ☐ M7 | Zoom to 200% | Nothing is clipped or unreachable |
-| ☐ M8 | Narrow to 320px | No horizontal scroll; full-width buttons still at `--btn-h` (54px today), small and icon buttons at the 44px floor |
+| ☐ M8 | Narrow to 320px | No horizontal scroll; full-width buttons still at `--btn-h` (56px), small and icon buttons at the 44px floor |
 | ☐ M9 | Tab through a form with the keyboard | Focus is visible and correctly ordered |
 | ☐ M10 | Devtools → Network, hard reload | No web-font requests on any screen |
 | ☐ M11 | Change one colour in `theme.css`'s `:root` block, reload | The app re-themes from that one block. (Known exceptions, 2026-09-28: the QR's maroon, the landing illustration's fills and ~20 literal `#fff` do not follow — record, don't fail) |
@@ -1013,22 +1013,16 @@ the doc:
 1. **Where a UPI order waits.** `CLAUDE.md` (*Order state machine*) says a UPI order
    "stops at `PACKED`" until the seller confirms the money; the code refuses the move
    **to** PACKED, so it waits at ACCEPTED (I11a).
-2. **Buttons are 54px, not 56.** `CLAUDE.md` (*Design rules*) says 56px buttons;
-   `--btn-h` in `frontend/src/styles/theme.css` is 54px. A13 and M8 test the token and
-   ask which is intended.
-3. **The seller's bank QR does not reach the buyer.** `CLAUDE.md` (*Product photos*)
+2. **The seller's bank QR does not reach the buyer.** `CLAUDE.md` (*Product photos*)
    says "the QR reaches every buyer at checkout"; checkout shows no QR, and the order
    screen draws one from her UPI ID with the amount (K6). `upiQrUrl` is left out of the
    seller object on `GET /orders/:id`.
-4. **Re-posting a UTR on the same order is not possible.** `CLAUDE.md` (*The two numbers
-   nobody can check for her*) says it is left alone as a correction; after the first
-   `POST /orders/:id/pay` the order is `UPI_SUBMITTED` and any second post is 409 (I11e).
-5. **`PincodeBar` is not rendered.** `CLAUDE.md` (*Where an order may go*) says the
+3. **`PincodeBar` is not rendered.** `CLAUDE.md` (*Where an order may go*) says the
    checkout and `PincodeBar` warn; only checkout does — no screen draws the bar (G6).
-6. **`ProductDetail` is not the only screen that adds to a cart.** `CLAUDE.md` (*One
+4. **`ProductDetail` is not the only screen that adds to a cart.** `CLAUDE.md` (*One
    seller per cart*) says it is; the grid cards' Add control adds too, and refuses a
    second shop with a toast (H5a).
-7. **The boot banner, not `CLAUDE.md`,** still says "Images off - emoji only", and still
+5. **The boot banner, not `CLAUDE.md`,** still says "Images off - emoji only", and still
    says `Database Firestore` after a failed connection has fallen back to the JSON file
    (O1, O4).
 

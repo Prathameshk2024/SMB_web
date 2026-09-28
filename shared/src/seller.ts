@@ -258,6 +258,20 @@ export function normalizePhone(value: string | undefined): string {
   return digits
 }
 
+/**
+ * What a phone box keeps of what was typed or pasted.
+ *
+ * Capping the raw text at ten characters turned "+91 98220 11223" into
+ * "9198220112" - ten digits that look valid and send the OTP to somebody
+ * else. So the box keeps up to twelve digits and lets `normalizePhone` take
+ * off the 91 or the 0 once the whole number is there: typed one digit at a
+ * time or pasted, it lands on the same ten, and anything that cannot become
+ * ten stays visibly too long rather than being cut into a stranger's number.
+ */
+export function phoneInput(value: string): string {
+  return normalizePhone(value).slice(0, 12)
+}
+
 /** Whether two spellings mean the same number. Empty never matches empty. */
 export function samePhone(a: string | undefined, b: string | undefined): boolean {
   const left = normalizePhone(a)

@@ -6,6 +6,7 @@ import { sizeLabel } from '../../lib/productSize.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { useAuth } from '../../store/AuthContext.js'
 import { api, ApiError } from '../../lib/api.js'
+import { submitErrorText } from './submitError.js'
 import { useToast } from '../../store/ToastContext.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
 import {
@@ -241,7 +242,7 @@ export default function UploadProduct() {
       nav('/seller/products', { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
-        setServerError(err.messageMr ?? err.message)
+        setServerError(submitErrorText(err, t))
         if (err.fields) setErrors(err.fields)
       } else {
         setServerError(t('err.network'))
@@ -557,12 +558,12 @@ export default function UploadProduct() {
               )}
             </Card>
 
-            <Notice tone="ok" title={t('prod.liveNow')}>
+            <Notice tone="ok" title={t('prod.goesForCheck')}>
               {t('prod.willUseSlot', { used: slots.used + 1, total: slots.total })}
             </Notice>
 
             {/* Said at the moment she commits, not buried in a policy page.
-                Publishing is hers now; this is the other half of that. */}
+                What she writes goes out under her name once it is approved. */}
             <Notice tone="warn">{t('prod.responsibility')}</Notice>
 
             {serverError && <Notice tone="danger">{serverError}</Notice>}

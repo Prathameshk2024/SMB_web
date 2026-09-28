@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Seller, SubscriptionPayment } from '@shared/types.js'
-import { sellerStatusAfterReject } from '../src/db/payments.js'
+import { rejectProblem, sellerStatusAfterReject } from '../src/db/payments.js'
 
 /**
  * Rejecting a payment used to set the seller to PAYMENT_REJECTED no matter
@@ -69,4 +69,20 @@ test('the payment being rejected is ignored even if it was approved', () => {
   )
 
   assert.equal(status, 'PAYMENT_REJECTED')
+})
+
+/**
+ * Rejecting an approved payment took back none of what the approval gave, and
+ * a missing reason reached her as a sentence nobody had written.
+ */
+test('only a pending payment can be rejected', () => {
+  assert.equal(rejectProblem({ status: 'PENDING' }, 'screenshot is of another order'), null)
+  assert.equal(rejectProblem({ status: 'APPROVED' }, 'changed my mind')?.status, 409)
+  assert.equal(rejectProblem({ status: 'REJECTED' }, 'again')?.status, 409)
+})
+
+test('a rejection needs a reason she can read', () => {
+  assert.equal(rejectProblem({ status: 'PENDING' }, undefined)?.status, 400)
+  assert.equal(rejectProblem({ status: 'PENDING' }, '   ')?.status, 400)
+  assert.equal(rejectProblem({ status: 'PENDING' }, 42)?.status, 400)
 })
