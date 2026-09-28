@@ -28,7 +28,7 @@ export const PLAN = {
  *
  * Only an admin frees one, by rejecting a listing or taking a live one down.
  * REJECTED is therefore absent - the slot comes back the moment the decision
- * is made, not when the rejected row is swept 48 hours later. That is also
+ * is made, which now also deletes the row. That is also
  * what stops a woman with a bad listing being stuck: she asks, and an admin
  * takes it down.
  *

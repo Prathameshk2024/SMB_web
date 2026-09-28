@@ -14,7 +14,7 @@ import type { Order, OrderStatus, PaymentMode, PaymentStatus } from './types.js'
  * implying something was still outstanding when nothing was.
  *
  * Payment is deliberately NOT a step in this chain. It sits on its own axis,
- * because a cash order and a UPI order have to walk the same six screens.
+ * because a cash order and a UPI order have to walk the same five states.
  * Inserting a payment state into the middle is the change that would break it.
  *
  * There is no delivery OTP. The seller marks DELIVERED herself and that is

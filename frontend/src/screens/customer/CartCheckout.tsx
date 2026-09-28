@@ -522,7 +522,7 @@ export function Checkout() {
 }
 
 /* ================================================================== */
-/* Order placed - the OTP is the hero of this screen                    */
+/* Order placed                                                         */
 /* ================================================================== */
 
 export function OrderPlaced() {

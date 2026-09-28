@@ -411,7 +411,7 @@ export interface Product {
   sellerId: string
   /** Fallback shown until a real photo exists, and if one fails to load. */
   emoji: string
-  /** Cloudinary secure_url. Read through the LRU cache, never fetched directly. */
+  /** Cloudinary secure_url, shown as a thumbnail by ProductImage (cloudinaryThumb). */
   imageUrl?: string
   /** Cloudinary public_id, so a replaced photo can be deleted from the account. */
   imagePublicId?: string
@@ -460,9 +460,9 @@ export interface Product {
   status: ProductStatus
   rejectReason?: string
   /**
-   * When an admin rejected it. A rejected listing is removed automatically
-   * 48 hours later (see shared/src/moderation.ts) - the stamp is what that
-   * clock counts from, and what her app counts down to.
+   * When an admin rejected it. Only rows rejected under the old 48-hour rule
+   * carry it: a rejection now deletes the listing at once, and purgeRejected()
+   * in backend/src/db/moderation.ts sweeps the stragglers by this stamp.
    */
   rejectedAt?: string
   views: number

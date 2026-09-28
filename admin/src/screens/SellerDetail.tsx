@@ -499,7 +499,7 @@ function Listings({ detail, onDone }: { detail: Detail; onDone: () => void }) {
       ) : (
         <div className="stack-sm">
           {/* The same card the moderation screen uses, so taking a listing
-              down works identically from here - reason, and 48 hours to undo. */}
+              down works identically from here - a reason, then deleted. */}
           {products.map((p) => <ProductCard key={p.id} product={p} onDone={onDone} />)}
         </div>
       )}
