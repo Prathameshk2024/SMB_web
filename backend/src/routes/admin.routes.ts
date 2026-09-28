@@ -10,7 +10,7 @@ import {
 import { applyApprovedPayment, recordOutsidePayment } from '../db/subscription.js'
 import { getDb, save } from '../db/store.js'
 import { documentCount, startsWithinFreeReads } from '../db/firestore.js'
-import { sellerStatusAfterReject } from '../db/payments.js'
+import { rejectProblem, sellerStatusAfterReject } from '../db/payments.js'
 import { appendNotice as notifySeller } from '../db/notices.js'
 import { callerIp, requireRole } from '../middleware/auth.js'
 import { destroyImage } from './uploads.routes.js'
@@ -233,8 +233,13 @@ adminRouter.post('/payments/:id/reject', (req, res) => {
     res.status(404).json({ error: 'Payment not found', messageMr: 'हा भरणा सापडला नाही' })
     return
   }
+  const problem = rejectProblem(payment, req.body?.reason)
+  if (problem) {
+    res.status(problem.status).json({ error: problem.error, messageMr: problem.messageMr })
+    return
+  }
   payment.status = 'REJECTED'
-  payment.rejectReason = String(req.body?.reason ?? 'UTR did not match the bank statement')
+  payment.rejectReason = String(req.body.reason).trim()
   payment.verifiedAt = new Date().toISOString()
   payment.verifiedBy = verifierName(db, req)
 

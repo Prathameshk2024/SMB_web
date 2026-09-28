@@ -6,6 +6,7 @@ import {
 } from '@shared/seller.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
+import { submitErrorText } from './submitError.js'
 import { useToast } from '../../store/ToastContext.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
 import {
@@ -181,7 +182,7 @@ export default function EditProduct() {
       nav('/seller/products', { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
-        setServerError(err.messageMr ?? err.message)
+        setServerError(submitErrorText(err, t))
         if (err.fields) setErrors(err.fields)
       } else {
         setServerError(t('err.network'))

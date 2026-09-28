@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { Order, OrderStatus, PaymentMode, SellerGroup } from '@shared/types.js'
 import {
-  actionFor, awaitingCustomerPayment, awaitingPaymentConfirmation, canTransition,
+  actionFor, awaitingCustomerPayment, awaitingPaymentConfirmation, buyerMayCorrectUtr, canTransition,
   cleanDeliveryEstimate, initialPaymentStatus,
 } from '@shared/orderFlow.js'
 import { isMaharashtraPincode } from '@shared/seller.js'
@@ -377,7 +377,7 @@ ordersRouter.post('/:id/pay', requireRole('customer'), (req, res) => {
     return
   }
 
-  if (!awaitingCustomerPayment(order)) {
+  if (!awaitingCustomerPayment(order) && !buyerMayCorrectUtr(order)) {
     res.status(409).json({
       error: `Not awaiting payment (${order.status} / ${order.paymentStatus})`,
       messageMr: 'या ऑर्डरसाठी आत्ता पैसे भरायचे नाहीत',
@@ -414,6 +414,13 @@ ordersRouter.post('/:id/pay', requireRole('customer'), (req, res) => {
     return
   }
 
+  // The same number sent again changes nothing and tells the seller nothing.
+  // A corrected one tells her again: she may already have looked for the old
+  // one on her statement and not found it.
+  if (order.paymentStatus === 'UPI_SUBMITTED' && order.paymentUtr === utr) {
+    res.json({ order })
+    return
+  }
   order.paymentUtr = utr
   order.paymentStatus = 'UPI_SUBMITTED'
   save()

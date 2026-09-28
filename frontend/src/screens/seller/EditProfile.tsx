@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Seller } from '@shared/types.js'
-import { EDUCATION_LEVELS } from '@shared/seller.js'
+import { EDUCATION_LEVELS, phoneInput } from '@shared/seller.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
@@ -163,8 +163,8 @@ export default function EditProfile() {
             </Field>
             <Field label={`${t('reg.whatsapp')} (${t('common.optional')})`} htmlFor="wa">
               <TextInput
-                id="wa" inputMode="numeric" maxLength={10} value={f.whatsapp}
-                onChange={(e) => set('whatsapp', e.target.value.replace(/[^0-9]/g, ''))}
+                id="wa" inputMode="numeric" maxLength={16} value={f.whatsapp}
+                onChange={(e) => set('whatsapp', phoneInput(e.target.value))}
               />
             </Field>
           </div>

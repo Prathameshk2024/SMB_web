@@ -296,7 +296,7 @@ async function main(): Promise<void> {
     case 'unblock-customer': await blockCustomer(a1!, false); break
     case 'pending': printPayments(await listPending()); break
     case 'approve': await approve(a1, a2 === '--verified'); break
-    case 'reject': await reject(a1!, a2 ?? 'UTR did not match the bank statement'); break
+    case 'reject': await reject(a1!, a2 ?? ''); break
     case 'grant': await grant(a1!, Number(a2 ?? 1)); break
     case 'sellers': await sellers(); break
     case 'products': await products(); break
@@ -309,7 +309,7 @@ async function main(): Promise<void> {
     pending                     list ₹50 payments waiting for approval
     approve <id|phone> --verified
                                 approve after checking the screenshot — grants 5 product slots
-    reject <id> [reason]        reject with a reason
+    reject <id> <reason>        reject a pending payment; the reason is required
     grant <phone> [packs]       grant slots directly, no payment needed
     sellers                     every seller with status and slot usage
     products                    products waiting for moderation

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Seller } from '@shared/types.js'
-import { normalizePhone, samePhone } from '@shared/seller.js'
+import { normalizePhone, samePhone, phoneInput } from '@shared/seller.js'
 
 /**
  * Why an already-registered seller was being asked to register again.
@@ -73,4 +73,22 @@ test('a different number still does not match', () => {
   const sellers = [seller('9876543210')]
 
   assert.equal(sellers.find((s) => samePhone(s.phone, '9000000000')), undefined)
+})
+
+/**
+ * The phone box used to cap the raw text at ten characters, so "+91 98220
+ * 11223" stopped at "9198220112" - valid-looking, and somebody else's number.
+ */
+test('the phone box lands on the same ten digits typed or pasted', () => {
+  assert.equal(phoneInput('+91 98220 11223'), '9822011223')
+  assert.equal(phoneInput('098220 11223'), '9822011223')
+  assert.equal(phoneInput('98220 11223'), '9822011223')
+
+  // Typed one key at a time, never cut into a stranger's ten digits on the way.
+  let box = ''
+  for (const key of '+91 98220 11223') box = phoneInput(box + key)
+  assert.equal(box, '9822011223')
+
+  // Too many digits stay too many, visibly, rather than being trimmed to ten.
+  assert.equal(phoneInput('98220112234'), '98220112234')
 })

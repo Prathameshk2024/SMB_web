@@ -47,6 +47,22 @@ Done also means:
   live account's full keys. If the Cloudinary plan allows a key with
   restricted permissions, the same reasoning applies.
 
+## Move the photos to a new Cloudinary account
+
+*Added 28 September 2026, from `docs/BACKUP.md`.*
+
+Every photo URL stored in Firestore names the live Cloudinary account, so if
+that account is lost, closed or locked, restoring the photos into another one
+brings back files the app cannot show. Until a script rewrites the stored
+URLs, the only defence is keeping the live account alive, with its login
+known to more than one person.
+
+`docs/BACKUP.md` §4, *Not built: moving the photos to a new Cloudinary
+account*, is the whole specification — which fields hold URLs, replacing the
+prefix only, a dry run by default, switching Cloud Run's Cloudinary settings
+at the same time, and retiring the backup account as a target. Done means
+that section is replaced by the command, and a restore drill has used it.
+
 ## Delivery charge by distance, set by the seller
 
 *Added 25 September 2026.*
@@ -120,9 +136,11 @@ To settle before building it:
   "Windows" and the like, so two Android phones are two identical rows. The
   last-used time may be enough; if not, record the phone model from the user
   agent at login. Do not store the raw user agent.
-- **"Sign out everywhere else".** `revokeAllForUser()` exists but no route
-  calls it. One button that ends every session but this one is probably the
-  control a woman with a stolen phone actually needs.
+- **"Sign out everywhere else".** `revokeAllForUser()` is used only by
+  closing an account and by an admin blocking a buyer, and it ends every
+  session including the caller's; no route lets her use it herself. One
+  button that ends every session but this one is probably the control a
+  woman with a stolen phone actually needs.
 - Every label in both languages, written separately (`docs/MARATHI-STYLE.md`).
 
 ## Move Firebase to Blaze, with a budget alert
@@ -154,7 +172,10 @@ recovery become available.
    GitHub Actions copy), and `docs/DEPLOY.md`'s "not on a day the Spark
    limits are spent".
 
-The backup project can stay on Spark.
+The backup project can stay on Spark for now. It needs the same move before
+the live database nears 50,000 documents, or its dated copies outgrow 1 GiB
+— both during a district-sized year (`docs/CAPACITY.md` §4, *The backup
+project*).
 
 ## Read documents per request instead of loading everything at start
 
@@ -198,9 +219,14 @@ copy that was wrong, treated as the truth — goes away. Scripts
 - **Rules that scan a whole collection need another shape.** The
   duplicate-UTR check, slot counting, the per-village serial in the
   `SMB-<VILLAGE>-<NN>` ID, seller ratings and the dashboard counts each need a
-  query with an index, or a stored counter. The 48-hour sweep of rejected
-  listings and the archive purge need a scheduled job instead of running at
-  boot.
+  query with an index, or a stored counter. Closing a buyer's account
+  rewrites her id across `orders`, `reviews`, `reports`, `complaints` and
+  `sessions`, and erasing a seller touches her payments, listings, complaints
+  and the reports about her — each a query per collection, and a write that
+  must not half-finish. The sweeps that run at boot and on the 15-minute
+  timer — seven-day account erasure (`sweepClosedAccounts`), session and
+  auth-log pruning, and the leftover rejected and archived listings — need a
+  scheduled job and a query each instead of a walk over memory.
 - **Races that cannot happen today become possible.** One process runs one
   handler at a time against memory, so two requests cannot both take the
   last slot or both claim the same UTR. Slot limits, stock, duplicate UTRs,
@@ -211,7 +237,7 @@ copy that was wrong, treated as the truth — goes away. Scripts
   becomes six. It needs a shared store.
 - **Latency.** Each request pays network round trips, and reads made one
   after another (session → order → seller) add up on rural 4G.
-- **Size of the rewrite.** `getDb()` has about 75 call sites in 15 files, and
+- **Size of the rewrite.** `getDb()` has about 90 call sites in 15 files, and
   every helper beneath them becomes async. The diffed, batched `save()` gives
   way to explicit writes in each route — each one a place to forget a write.
   Tests that build a database in memory need the Firestore emulator or a

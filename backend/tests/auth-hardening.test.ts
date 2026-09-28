@@ -206,14 +206,14 @@ test('a number gets three codes a day, and the fourth is refused', () => {
   assert.equal(hit('otp:send:phone:9764455662', limit, now + limit.windowMs + 1).ok, true)
 })
 
-test('only the MSG91 demo number skips the send ceiling', () => {
+test('only the MSG91 demo numbers skip the send ceiling', () => {
   /*
-   * Google Play's reviewers sign in with the demo number set in MSG91's
-   * widget, which is sent no SMS, so the ceiling's reason does not reach it.
+   * Google Play's reviewers sign in with the demo numbers set in MSG91's
+   * widget, which are sent no SMS, so the ceiling's reason does not reach them.
    * Everyone else keeps the three-a-day limit: a wider list would be a way to
    * run up the SMS bill through a number nobody meant to exempt.
    */
-  assert.deepEqual([...SEND_LIMIT_EXEMPT], ['9579642050'])
+  assert.deepEqual([...SEND_LIMIT_EXEMPT], ['9999999999', '9579642050'])
   assert.equal(SEND_LIMIT_EXEMPT.has('9764455662'), false)
 })
 

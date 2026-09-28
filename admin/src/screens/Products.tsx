@@ -24,12 +24,11 @@ type Tab = 'PENDING' | 'LIVE' | 'REPORTED'
 /**
  * Moderation is mostly looking, so the photo leads.
  *
- * There is no review queue here, and that is deliberate. A seller publishes her
- * own listing the moment she finishes the wizard - nothing is ever created
- * PENDING - so a "to review" tab was permanently empty and a Publish button
- * had nothing it could ever apply to. What this screen does is the other
- * direction: take a live listing down, with a reason she reads, and put one
- * back if it was taken down in error.
+ * PENDING is the review queue and opens first. Nothing a seller writes goes
+ * live on its own (initialListingStatus() never returns LIVE), so Publish here
+ * is the only way a listing reaches buyers. Rejecting - a pending listing, or
+ * a live one taken down - deletes it and frees her slot, with the reason sent
+ * to her as a notice.
  */
 export function Products() {
   const t = useT()
@@ -77,7 +76,7 @@ export function Products() {
  * One listing, with whatever action its status allows.
  *
  * Exported because her own page shows the same listings, and the take-down
- * flow - a reason she reads, and 48 hours in which it can be undone - must be
+ * flow - a reason she reads, sent as a notice, and the listing deleted - must be
  * the same one in both places. A second copy is a second thing to keep in
  * step, and the half that falls behind is the half that stops explaining
  * itself.
@@ -93,9 +92,9 @@ export function ProductCard({ product, onDone }: { product: ProductRow; onDone: 
   const [err, setErr] = useState('')
 
   /**
-   * Taking a live listing down IS a rejection: it carries a reason she can
-   * read and it removes itself 48 hours later. That replaced the delete
-   * button, which removed the product on the spot and told her nothing.
+   * Taking a live listing down IS a rejection: it carries a reason she reads
+   * as a notice, deletes the listing and frees her slot. That replaced a bare
+   * delete button, which removed the product and told her nothing.
    */
   /**
    * Nothing a seller writes reaches a shopper until it is published here. She

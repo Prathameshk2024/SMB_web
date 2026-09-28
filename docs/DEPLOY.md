@@ -198,12 +198,27 @@ changes nothing until the next revision is deployed.
 | `CLOUDINARY_URL` | **Secret.** `cloudinary://key:secret@cloud` from the Cloudinary dashboard. |
 | `CLOUDINARY_FOLDER` | `shanta-mahila-bazar` |
 | `CORS_ORIGIN` | Both Vercel URLs, comma-separated. See §3. |
-| `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD_HASH` | First sign-in only, while no administrator exists. Make the hash locally with `npm run admin:users -- hash` — Cloud Run has no shell to run it in. Remove both once a real account exists. There is no `ADMIN_PASSWORD`. |
+| `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD_HASH` | First sign-in only, while no administrator exists. Make the hash locally with `npm run admin:users -- hash` — Cloud Run has no shell to run it in. A value that does not start `scrypt$` is ignored with a warning. `ADMIN_BOOTSTRAP_NAME` is optional (defaults to the email). Remove all three once a real account exists. There is no `ADMIN_PASSWORD`. |
+| `ADMIN_UPI_ID` / `ADMIN_UPI_NAME` / `ADMIN_BANK_NAME` | Where the seller's ₹50 goes — the QR on the website's subscription screen is generated from it. Unset means the college account written in `config.ts` (`ADMIN_PAYMENT_ACCOUNT`), which is the intended payee; set these only to move the money. The name must read exactly as her UPI app shows it after scanning. Nothing downstream catches a typo here. The APK never shows it. |
+| `FIRESTORE_DATABASE_ID` | Only for a named (non-default) Firestore database. Leave unset. |
 | `MSG91_AUTH_KEY` | **Secret.** The account Auth Key, and the only thing that can check a widget token. Never copy it into a `VITE_*` variable. |
 | `MSG91_WIDGET_ID` | The OTP widget's id. With `MSG91_AUTH_KEY` this selects the widget, which needs no DLT registration. |
 | `MSG91_TEMPLATE_ID` / `MSG91_SENDER` | Only for your own DLT-approved template. Leave unset while using the widget. |
-| `SEED_DEMO_DATA` | Leave unset. Setting it would put invented sellers in front of real customers. |
-| `ALLOW_BULK_DELETE` | Leave unset. It is for one command run by hand, never for the service. |
+| `SEED_DEMO_DATA` | Leave unset. Setting it would put invented sellers in front of real customers, so with `NODE_ENV=production` the server **refuses to boot** while it is set. |
+| `ALLOW_BULK_DELETE` | Leave unset. It is for one command run by hand, never for the service. Unlike `ALLOW_DEV_RESET`, it is honoured in production. |
+| `ALLOW_DEV_RESET` | Leave unset. It is ignored in production anyway. |
+| `BACKUP_*` | **Never on Cloud Run.** Those keys can write to the backups; they live only in GitHub (`docs/BACKUP.md`). |
+
+`CLOUDINARY_FOLDER` and the Cloudinary account are fixed once photos exist.
+Every route that stores a photo URL accepts only one in *this* account's
+folder (`ownImageProblem`, `backend/src/db/images.ts`), and the edit screen
+posts the stored URL back on every save — so changing either without
+rewriting the stored URLs makes every product edit fail with "फोटो पुन्हा
+जोडा". `docs/BACKUP.md`, *Not built: moving the photos*, has what that
+rewrite involves.
+
+Push notifications need no variable of their own: they go out through the
+same Firebase service account, and are on whenever Firestore is.
 
 Generate the session secret with:
 
@@ -251,13 +266,16 @@ Deployment → Root Directory*:
   Vercel knows a commit to `shared/` alone affects them. Remove it and such a
   commit deploys neither app.
 
-**Production is the branch Vercel is told it is**, and in this repository no
-default picks the right one. On import Vercel chooses `main` if it exists,
-and here `main` holds only the initial commit; GitHub's default branch is
-`prathamesh`, an older copy of the app from 8 September with no `admin/`
-folder, and a root `package-lock.json` written on Windows that is missing
-rollup's Linux binary. The first deployment built that branch and failed with
-`Cannot find module @rollup/rollup-linux-x64-gnu`. The app is `prathamesh2`.
+**Production is the branch Vercel is told it is**, so set it rather than
+trust a default. On import Vercel chooses `main` if it exists, and here `main`
+holds only the initial commit. `prathamesh` — GitHub's default branch at the
+time — is an older copy of the app from 8 September with no `admin/` folder,
+and a root `package-lock.json` written on Windows that is missing rollup's
+Linux binary. The first deployment built that branch and failed with
+`Cannot find module @rollup/rollup-linux-x64-gnu`. The app is `prathamesh2`,
+which is now GitHub's default branch too (`origin/HEAD`, checked 28 September
+2026). That matters beyond Vercel: scheduled workflows run from the default
+branch, so the nightly backup (`docs/BACKUP.md`) runs whatever is on it.
 
 Set it in both projects: *Settings → Environments → Production → Branch
 Tracking*, then *Deployments → Create Deployment* with the branch name. Do not
@@ -289,7 +307,8 @@ right.
 
 Every `VITE_*` value is read at **build** time, not run time — changing one
 means redeploying, not just restarting. The admin console has no login OTP, so
-the MSG91 pair belongs to project 1 alone.
+the MSG91 pair belongs to project 1 alone. `VITE_MSG91_OTP_LENGTH` is optional
+and needed only if the widget is set to something other than 6 digits.
 
 The two MSG91 values here are public by design; the browser cannot run the
 widget without them. **`MSG91_AUTH_KEY` is not one of them** — it lives on
@@ -338,6 +357,7 @@ Confirm it on boot — the banner prints what is active, in the service's
   Database       Firestore (shantaimahilabajar)
   Images         Cloudinary (wvd4cteq)
   OTP            MSG91 widget (356a4b...)
+  Push           Firebase Cloud Messaging
   CORS           https://shanta-bazar.vercel.app, https://shanta-admin.vercel.app
 ```
 
@@ -359,7 +379,12 @@ passes:
 3. Set `CORS_ORIGIN` on Cloud Run to the two Vercel URLs (the `^;^` command in
    §3). That makes a new revision — the same quiet-moment rule applies.
 4. Add the project-1 Vercel URL to the MSG91 widget's allowed domains.
-5. Deploy the Firestore rules: `firebase deploy --only firestore:rules`.
+5. Deploy the Firestore rules in `firestore.rules`. The repo has no
+   `firebase.json`, so `firebase deploy --only firestore:rules` has nothing to
+   read from a clone: paste the file into Firebase console → Firestore
+   Database → Rules and publish, or first write a local `firebase.json` of
+   `{ "firestore": { "rules": "firestore.rules" } }` and then run it with
+   `--project <PROJECT_ID>` (there is no `.firebaserc` either).
 6. Check the boot banner shows Firestore, Cloudinary, the MSG91 widget and both
    origins.
 7. Log in once on a real phone. The widget path is the one thing here that
@@ -380,8 +405,10 @@ passes:
 - [ ] Cloud Run maximum instances is 1
 - [ ] Cloud Run CPU is always allocated (`cpu-throttling: 'false'`)
 - [ ] `firestore.rules` deployed
-- [ ] `SEED_DEMO_DATA` unset
-- [ ] `robots.txt` with `Disallow: /` on the admin project
+- [ ] `SEED_DEMO_DATA` unset (the server refuses to boot in production with it set)
+- [ ] `ADMIN_UPI_*` either unset (the college account) or checked character by character against the account's own UPI app
+- [ ] No `BACKUP_*` variable on Cloud Run
+- [ ] `/robots.txt` on the admin URL answers `Disallow: /` — it is committed as `admin/public/robots.txt`, so check it is served rather than add it
 
 ---
 
@@ -419,6 +446,13 @@ What follows from that:
   domains (§2) for the web app to work. If requests fail only inside the APK,
   compare the URL in `app/index.tsx` with those two lists first.
 - **No network, no app.** Nothing is bundled into the APK.
+- **The site knows it is inside the APK only by the wrapper's
+  `ReactNativeWebView` bridge** (`frontend/src/lib/inApk.ts`, set because the
+  wrapper passes `onMessage`). Inside it the seller never sees the ₹50, the
+  college's QR or the UTR form — Google Play requires its own billing for
+  that — and staff record her payment with *Record payment* in the console.
+  A wrapper that stops setting `onMessage` would put the price back in the
+  APK, and would switch push off with it.
 
 The wrapper is Android System WebView, not Chrome, and it does more than
 display the page:
@@ -492,9 +526,14 @@ which is the product rule. Removing `CAMERA` therefore *adds* camera capture.
 
 - **Notifications:** Android's prompt, raised by the wrapper when the page
   sends `push:enable` — so after a seller or buyer signs in, never on the
-  landing page. Android 12 and older has no prompt. A refusal is currently
-  invisible: the wrapper simply stops, and after two refusals Android stops
-  asking. Nothing tells her or sends her to Settings.
+  landing page. Android 12 and older has no prompt. After two refusals
+  Android stops asking, so the page has to say so: the wrapper reports the
+  answer through `window.__smbPushStatus`, and on a refusal `PushBridge`
+  shows a card above the bottom tabs with **सेटिंग उघडा**, which posts
+  `{ type: 'push:settings' }` for the wrapper to open the app's page in
+  Android settings (`lib/pushBridge.ts`, since `392bed9`). An APK whose
+  wrapper never calls `__smbPushStatus` shows no card, so check that the
+  build in hand does — that half is in the wrapper repo, not here.
 - **Microphone:** the wrapper never requests it at runtime.
   `react-native-webview` asks Android only for `getUserMedia`, which the Web
   Speech API may not use. Test on a fresh install; if the mic reports

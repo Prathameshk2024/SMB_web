@@ -371,10 +371,11 @@ export function ProductDetail() {
         )}
 
         {/* Printed for the buyer because that is the point of having one:
-            a number she can check against the FSSAI register. Only shown
-            when the seller gave one. */}
-        {product.isFood && product.fssai && (
-          <div className="small dim num">{t('prod.fssai')}: {product.fssai}</div>
+            a number she can check against the FSSAI register. The seller's
+            own, from registration; a listing's is used first if it has one.
+            Only shown when the seller gave one. */}
+        {product.isFood && (product.fssai || seller?.fssai) && (
+          <div className="small dim num">{t('prod.fssai')}: {product.fssai || seller?.fssai}</div>
         )}
 
         {seller && (

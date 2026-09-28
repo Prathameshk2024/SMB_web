@@ -6,7 +6,8 @@ that recovered six sellers on 10 September 2026. So the backup is a copy into
 **separate free accounts**, made by `npm run backup` and put back by
 `npm run restore` (`backend/scripts/backup.ts` and `restore.ts`; the rules in
 `backend/src/db/backupPlan.ts`, the reading and writing they share in
-`backupIo.ts`, tests in `backend/tests/backup.test.ts`).
+`backupIo.ts`, tests in `backend/tests/backup.test.ts` and
+`backup-retention.test.ts`).
 
 ```
                       nightly, GitHub Actions
@@ -61,8 +62,9 @@ copies or empties `snapshots`, and the app never loads it.
 
 **Every night proves its own copy.** The backup keys live only in GitHub, so
 no laptop reads a stored copy until the day one is needed. Instead the run
-reads tonight's copy straight back, unpacks it, and checks it holds the same
-number of documents in every collection that live did (`readBackProblem`);
+reads tonight's copy straight back, checks it is byte for byte what was
+stored, unpacks it, and checks it holds the same number of documents in every
+collection that live did (`readBackProblem`);
 the log says `read back and checked`, and a copy that fails turns the run
 red. That covers everything a `--snapshot` restore does except the final
 write.
@@ -71,8 +73,11 @@ Backup A was set up on 24 September 2026. **The logins for the backup
 accounts must be known to more than one person** — a backup nobody can sign in
 to is not a backup.
 
-What is copied: `sellers`, `products`, `orders`, `payments`, `customers`,
-`reviews`, `admins`, `authEvents`, and every image under
+What is copied: every collection the app uses except `sessions` —
+`sellers`, `products`, `orders`, `payments`, `customers`, `reviews`,
+`reports`, `complaints`, `admins`, `authEvents` (`BACKED_UP` in
+`backupPlan.ts`, derived from `COLLECTIONS` in `firestore.ts`, so a new
+collection is backed up without anybody editing this) — and every image under
 `shanta-mahila-bazar/` (`product/` and `payment/`).
 
 What is **not**:
@@ -92,11 +97,15 @@ What is **not**:
 - **The backup database mirrors the live one**, deletions included, writing
   only documents that changed. A copy that never deleted would bring back every
   purged demo seller and deleted draft on the day it was restored.
-- **A live project that has shrunk is not copied.** If any collection has lost
-  more than half its documents since the backup was taken, or the live read
-  comes back empty, nothing is written, the backup keeps the older data, and
-  the run fails. This is the same line `isBulkDelete()` draws in the API. The
-  override is `ALLOW_BULK_DELETE=true`, for a shrink that is deliberate.
+- **A live project that has shrunk is not mirrored.** If any collection has
+  lost more than half its documents since the backup was taken, or the live
+  read comes back empty, the mirror writes nothing, the backup keeps the older
+  data, and the run fails. Tonight's dated copy is still stored — a copy only
+  adds, so keeping one of a project that looks damaged loses nothing — and
+  pruning still runs, since it goes by age alone. `authEvents` is exempt: it
+  is a rolling log the app prunes itself. This is the same line
+  `isBulkDelete()` draws in the API. The override is `ALLOW_BULK_DELETE=true`,
+  for a shrink that is deliberate.
 - **Photos follow the live account, deletions included.** They used to be
   kept for ever, as the proof behind every approved ₹50 — but a seller who
   deletes her account has her screenshots and product photos destroyed live,
@@ -119,6 +128,9 @@ What is **not**:
 `.github/workflows/backup.yml` runs at 03:00 IST (`30 21 * * *` UTC). To run
 it by hand: **Actions → Backup → Run workflow**. The checkbox *Report only,
 write nothing* is the dry run — ticked, it only reports; unticked, it copies.
+It starts ticked, so a hand-started run copies only if you untick it; the
+scheduled run has no checkbox and always copies. `concurrency: backup` keeps
+two runs from overlapping.
 
 It uses these repository secrets (Settings → Secrets and variables → Actions):
 
@@ -137,7 +149,8 @@ project instead, which only the backup key can read.
 
 Things to know:
 
-- A failed scheduled run emails whoever last committed the workflow file.
+- A failed scheduled run emails whoever created the workflow, or whoever last
+  changed its `cron` line.
 - **GitHub disables scheduled workflows in a public repository after 60 days
   without a commit.** It emails a warning first; re-enable it from the Actions
   tab.
@@ -154,12 +167,18 @@ Things to know:
 npm run backup -- --dry-run            # what it would do
 npm run backup -- --to a               # the nightly run, by hand
 npm run backup -- --to a --local       # ...and a copy on this laptop too
+npm run backup -- --local              # a local copy only, no backup target
 ```
 
-The live keys come from `backend/.env`; add the `BACKUP_*` lines from
-`backend/.env.example` for the targets. `--local` writes the dated database
-file and downloads the photos to `backend/data/backups/` — the only copy that
-does not depend on any account staying open. It is gitignored, and it holds
+The live keys come from `backend/.env`. `--local` on its own needs nothing
+else; `--to a` needs the `BACKUP_*` lines from `backend/.env.example`, and
+the backup keys live only in GitHub — so to check the nightly copy, run the
+workflow by hand rather than put a backup key on a laptop, and keep that for
+a restore (§4). `--local --no-local-images` skips the photos.
+
+`--local` writes the dated database file and downloads the photos to
+`backend/data/backups/` — the only copy that does not depend on any account
+staying open. It is gitignored, and it holds
 phone numbers, addresses and admin password hashes: **delete it when the job
 it was made for is done**, because nothing prunes it until `--local` runs
 there again.
@@ -240,7 +259,14 @@ npm run backup -- --to live --no-copies --dry-run
 
 It uploads every photo the live account is missing under its original
 `public_id`, so the URLs stored in the database resolve again without changing
-a document. Those URLs also carry a version number (`/v1726…/`); Cloudinary is
+a document. **It also removes from the live account every photo the backup
+lacks** — the mirror follows deletions both ways, so anything uploaded live
+since the last nightly run goes. The dry run's `would remove` is that number;
+if it is not zero and those photos matter, use `restore --images` from a
+`--local` copy instead, which only ever adds. The shrink check still stops it
+removing more than half.
+
+The stored URLs also carry a version number (`/v1726…/`); Cloudinary is
 understood to ignore it when serving, but **this has not yet been tried** — a
 restore drill is how to find out.
 
@@ -355,9 +381,13 @@ What building it means, measured on the copy of 23 September 2026:
   because it holds the old URLs in memory.
 - **Switch the live settings at the same time**: `CLOUDINARY_URL` (or
   `CLOUDINARY_*`) on Cloud Run to the new account, so new uploads go there.
-  `screenshotProblem()` in `backend/src/db/payments.ts` checks a new
-  screenshot against the configured cloud name, so it follows by itself;
-  screenshots already approved are not checked again.
+  `ownImageProblem()` in `backend/src/db/images.ts` (which
+  `screenshotProblem()` delegates to) accepts only a URL in the configured
+  cloud and folder, for a product's `imageUrl`, a seller's `upiQrUrl` and
+  `photo`, and a payment screenshot. The edit screen posts the stored
+  `imageUrl` back on every save, so between the switch and the rewrite every
+  product edit is refused — the two have to land together. Screenshots
+  already approved are not checked again.
 - **Then the backups**: the backup Cloudinary becomes the account the app
   depends on — it should stop being a backup target, and a new backup account
   take its place, before the nightly workflow is re-enabled.
@@ -396,6 +426,7 @@ done.**
 | `copies → <project>: … did not read back as stored` | Tonight's copy came back different from what was stored, or short of documents live had. The mirror still ran and older copies are untouched; the reason follows on the line. Look before trusting tonight's copy for a restore. |
 | `copies → <project>: …` | Storing or pruning the dated copies failed; the mirror still ran. Read the Firestore error — usually the backup project's daily write limit, or a missing Firestore database. Until a run succeeds, nothing is being pruned. |
 | `cloudinary not configured` | One of the three `LIVE_CLOUDINARY_*` secrets is missing or misspelled. |
+| `photos → <cloud>: N of M photos in the backup are gone from live` / `the live account lists no photos` | More than half the backup's photos would be removed. Nothing was removed; photos were still copied. Find out why, as with the database; `ALLOW_BULK_DELETE=true` if it is deliberate. |
 | `the live project has shrunk since this backup was taken` | A collection lost more than half its documents. **Find out why before doing anything else** — this is what 10 September looked like. If the shrink was deliberate (a purge), run once with `ALLOW_BULK_DELETE=true`. |
 | `is the LIVE Firebase project - refusing` / `is the LIVE Cloudinary account - refusing` | A backup secret holds the live key. |
 | `backup target "a" has neither a Firebase key nor a Cloudinary URL` | `BACKUP_TARGETS` names a target whose secrets are not in the workflow's `env:`. |

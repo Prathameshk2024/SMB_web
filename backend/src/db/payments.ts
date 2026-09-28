@@ -50,3 +50,25 @@ export function sellerStatusAfterReject(
 
   return stillApproved ? seller.status : 'PAYMENT_REJECTED'
 }
+
+/**
+ * Why a payment may not be rejected, or null if it may.
+ *
+ * Only a payment still waiting can be refused, as only one can be approved.
+ * Rejecting an approved one used to be allowed, and it took back none of the
+ * slots or months the approval gave - it only told her she had not paid. And
+ * the reason is required, because it is what she reads in her app: with none,
+ * she was told "UTR did not match the bank statement" whatever the truth was.
+ */
+export function rejectProblem(
+  payment: Pick<SubscriptionPayment, 'status'>,
+  reason: unknown,
+): { status: 400 | 409; error: string; messageMr: string } | null {
+  if (payment.status !== 'PENDING') {
+    return { status: 409, error: `Already ${payment.status}`, messageMr: 'यावर आधीच निर्णय झाला आहे' }
+  }
+  if (typeof reason !== 'string' || !reason.trim()) {
+    return { status: 400, error: 'A reason is required', messageMr: 'नाकारण्याचे कारण लिहा' }
+  }
+  return null
+}

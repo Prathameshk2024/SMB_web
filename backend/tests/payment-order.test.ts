@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Order } from '@shared/types.js'
 import {
-  awaitingCustomerPayment, awaitingPaymentConfirmation, initialPaymentStatus,
+  awaitingCustomerPayment, awaitingPaymentConfirmation, buyerMayCorrectUtr, initialPaymentStatus,
 } from '@shared/orderFlow.js'
 
 /**
@@ -73,6 +73,22 @@ test('a UPI order is not packed until she has confirmed the money', () => {
 test('a cash order is never held up waiting for money', () => {
   assert.equal(
     awaitingPaymentConfirmation(order({ paymentMode: 'COD', paymentStatus: 'COD_PENDING' })),
+    false,
+  )
+})
+
+/**
+ * A UTR typed one digit wrong is an order nobody can match to a payment, so
+ * the buyer may send it again - until the seller has confirmed the money, when
+ * the number is settled.
+ */
+test('the buyer can correct her UTR until the seller confirms it', () => {
+  assert.equal(buyerMayCorrectUtr(order({ paymentStatus: 'UPI_SUBMITTED' })), true)
+  assert.equal(buyerMayCorrectUtr(order({ paymentStatus: 'UPI_PENDING' })), false)
+  assert.equal(buyerMayCorrectUtr(order({ paymentStatus: 'UPI_CONFIRMED' })), false)
+  assert.equal(buyerMayCorrectUtr(order({ paymentStatus: 'UPI_SUBMITTED', status: 'CANCELLED' })), false)
+  assert.equal(
+    buyerMayCorrectUtr(order({ paymentMode: 'COD', paymentStatus: 'COD_PENDING' })),
     false,
   )
 })

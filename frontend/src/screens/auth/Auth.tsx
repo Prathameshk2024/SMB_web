@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { isValidPhone } from '@shared/seller.js'
+import { isValidPhone, phoneInput } from '@shared/seller.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { homeFor, useAuth } from '../../store/AuthContext.js'
 import { api, ApiError } from '../../lib/api.js'
@@ -67,17 +67,10 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
   /**
    * A registration the seller has already passed the OTP for, still in date.
    *
-<<<<<<< Updated upstream
    * Read on mount. A seller holding one must not be asked for another code -
    * this screen offers to take the seller back into the wizard instead, which
    * is the difference between one SMS and two on every back press. Cleared by
    * "use another number" (`switchNumber`).
-=======
-   * Read once on mount. A seller holding one must not be asked for another
-   * code - this screen offers to take the seller back into the wizard
-   * instead, which is the difference between one SMS and two on every back
-   * press.
->>>>>>> Stashed changes
    */
   const [pending, setPending] = useState(() => (role === 'seller' ? liveTicket() : null))
 
@@ -186,11 +179,11 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
             <TextInput
               id="phone"
               inputMode="numeric"
-              maxLength={10}
+              maxLength={16}
               value={phone}
               error={!!err}
               placeholder="9876543210"
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setPhone(phoneInput(e.target.value))}
             />
           </div>
         </Field>

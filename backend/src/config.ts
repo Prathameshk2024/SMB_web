@@ -359,7 +359,7 @@ export function otpProvider(): OtpProvider {
  * sign-in writes a real record and this path closes for good. See
  * auth/admins.ts for the whole story.
  *
- * Generate one with:  npm run admin:users hash
+ * Generate one with:  npm run admin:users -- hash
  */
 export interface AdminBootstrap {
   email: string
@@ -375,7 +375,7 @@ function readAdminBootstrap(): AdminBootstrap | null {
   if (!passwordHash.startsWith('scrypt$')) {
     console.warn(
       '[config] ADMIN_BOOTSTRAP_PASSWORD_HASH is not a scrypt hash. It must be the output of ' +
-        '`npm run admin hash`, not a password. Ignoring it.',
+        '`npm run admin:users -- hash`, not a password. Ignoring it.',
     )
     return null
   }

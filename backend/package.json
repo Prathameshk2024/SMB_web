@@ -12,6 +12,7 @@
     "backfill:customers": "node --import tsx --env-file-if-exists=.env scripts/backfill-customers.ts",
     "purge:demo": "node --import tsx --env-file-if-exists=.env scripts/purge-demo-data.ts",
     "scrub:auth-ips": "node --import tsx --env-file-if-exists=.env scripts/scrub-auth-ips.ts",
+    "purge:sellers": "node --import tsx --env-file-if-exists=.env scripts/purge-sellers.ts",
     "admin:users": "node --import tsx --env-file-if-exists=.env scripts/admins.ts",
     "backup": "node --import tsx --env-file-if-exists=.env scripts/backup.ts",
     "restore": "node --import tsx --env-file-if-exists=.env scripts/restore.ts"

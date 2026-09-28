@@ -4,9 +4,9 @@ import { samePhone } from '@shared/seller.js'
 /**
  * THE DEMO ACCOUNT, KEPT AWAY FROM REAL PEOPLE.
  *
- * Google Play's reviewers sign in with one number, set up in MSG91's OTP
+ * Google Play's reviewers sign in with a demo number, set up in MSG91's OTP
  * widget as "Demo Credentials" so no SMS is sent and a fixed code verifies
- * it. The same number is a seller (a shop named for the review) and a buyer,
+ * it. Each number is a seller (a shop named for the review) and a buyer,
  * and the reviewer is asked to order from that shop alone.
  *
  * Asking is not enough. Reviewers do not read instructions, and a reviewer
@@ -16,13 +16,23 @@ import { samePhone } from '@shared/seller.js'
  * demo buyer, and orders between the demo account and a real account are
  * refused at the one route that makes them.
  *
- * ONE number, in one place. `SEND_LIMIT_EXEMPT` in auth/rateLimit.ts is
- * built from it too. If it changes in MSG91, it changes here.
+ * There are two numbers, because the first one some checks refuse as not a
+ * real phone. They are one demo world, not two: either number's buyer may
+ * order from either number's shop, and neither may touch a real one.
+ *
+ * ONE list, in one place. `SEND_LIMIT_EXEMPT` in auth/rateLimit.ts is built
+ * from it too, so every number here must be a Demo Credential in MSG91 -
+ * anything else is a real phone that anybody could then send unlimited SMS
+ * to, on our bill. If they change in MSG91, they change here.
  */
-export const DEMO_PHONE = '9579642050'
+export const DEMO_PHONES: readonly string[] = ['9999999999', '9579642050']
+
+function isDemoPhone(phone: string | undefined): boolean {
+  return !!phone && DEMO_PHONES.some((demo) => samePhone(phone, demo))
+}
 
 export function isDemoSeller(seller: Pick<Seller, 'phone'> | undefined): boolean {
-  return !!seller && samePhone(seller.phone, DEMO_PHONE)
+  return !!seller && isDemoPhone(seller.phone)
 }
 
 /** The signed-in caller, if any - `req.auth` as the middleware attaches it. */
@@ -32,7 +42,7 @@ export interface Viewer {
 }
 
 export function isDemoViewer(auth: Viewer | undefined): boolean {
-  return !!auth?.phone && samePhone(auth.phone, DEMO_PHONE)
+  return isDemoPhone(auth?.phone)
 }
 
 /**

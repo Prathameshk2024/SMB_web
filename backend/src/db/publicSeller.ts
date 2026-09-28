@@ -14,6 +14,8 @@ import type { PublicSeller, RatingSummary, Seller } from '@shared/types.js'
  *    choosing between, and what the law wants beside a food listing.
  *  - delivery terms and pincodes - checkout needs them to price and warn.
  *  - UPI ID, QR image and whether it is set up - the thing a buyer pays to.
+ *  - FSSAI number - printed beside her food listings, where a buyer can check
+ *    it against the FSSAI register. The seller agreement says so.
  *  - rating: her products' ratings taken together, passed in by the caller
  *    from `ratingsBySeller` / `sellerRating`. Buyers rate products, never
  *    her directly; the stored `Seller.rating` fields are never used.
@@ -37,6 +39,7 @@ export function publicSeller(s: Seller, rating: RatingSummary): PublicSeller {
     upiId: s.upiId,
     upiQrReady: s.upiQrReady,
     upiQrUrl: s.upiQrUrl,
+    fssai: s.fssai,
     rating: rating.average,
     ratingCount: rating.count,
   }

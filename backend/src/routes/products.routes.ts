@@ -54,8 +54,9 @@ function listingProblems(b: Partial<Product>): Record<string, string> {
 /** Her own products, including drafts and rejected ones. */
 productsRouter.get('/mine', requireRole('seller'), (req, res) => {
   const db = getDb()
-  // A rejection she has already had 48 hours to read is gone by now. Swept on
-  // read as well as on the timer, so her list and the server never disagree.
+  // Rows rejected under the old 48-hour rule go now (a rejection deletes at
+  // once today). Swept on read as well as on the timer, so her list and the
+  // server never disagree.
   // `purgeArchived` clears tombstones from before deleting meant deleting.
   if (purgeRejected(db.products) + purgeArchived(db.products)) save()
   const sellerId = req.auth!.sellerId!

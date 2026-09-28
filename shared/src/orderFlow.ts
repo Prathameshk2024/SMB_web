@@ -14,7 +14,7 @@ import type { Order, OrderStatus, PaymentMode, PaymentStatus } from './types.js'
  * implying something was still outstanding when nothing was.
  *
  * Payment is deliberately NOT a step in this chain. It sits on its own axis,
- * because a cash order and a UPI order have to walk the same six screens.
+ * because a cash order and a UPI order have to walk the same five states.
  * Inserting a payment state into the middle is the change that would break it.
  *
  * There is no delivery OTP. The seller marks DELIVERED herself and that is
@@ -187,6 +187,18 @@ export function awaitingCustomerPayment(
   o: Pick<Order, 'paymentMode' | 'paymentStatus' | 'status'>,
 ): boolean {
   return o.paymentMode === 'UPI' && o.paymentStatus === 'UPI_PENDING' && o.status === 'ACCEPTED'
+}
+
+/**
+ * The buyer may still fix the UTR she sent: she has claimed the payment and
+ * the seller has not confirmed it. A digit typed wrong otherwise left an order
+ * nobody could match to a payment, with no way to say so. Once the seller
+ * confirms, the number is settled.
+ */
+export function buyerMayCorrectUtr(
+  o: Pick<Order, 'paymentMode' | 'paymentStatus' | 'status'>,
+): boolean {
+  return o.paymentMode === 'UPI' && o.paymentStatus === 'UPI_SUBMITTED' && o.status === 'ACCEPTED'
 }
 
 /**
