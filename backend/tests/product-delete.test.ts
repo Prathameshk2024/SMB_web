@@ -14,7 +14,7 @@ import { purgeArchived } from '../src/db/moderation.js'
  *
  * What makes the hard delete safe is that an order does not point at a
  * product for anything it needs to draw: `OrderItem` copies the name, emoji,
- * quantity and price across at checkout. The test below is that contract,
+ * quantity, price and size across at checkout. The test below is that contract,
  * because the day someone "normalises" those fields away is the day deleting
  * a listing quietly empties a year of order history.
  */
@@ -22,7 +22,10 @@ import { purgeArchived } from '../src/db/moderation.js'
 test('an order keeps what it needs after the product is gone', () => {
   const order = {
     id: 'SMB1043',
-    items: [{ productId: 'p1', name: 'आंब्याचे लोणचे', emoji: '🫙', qty: 2, price: 220 }],
+    items: [{
+      productId: 'p1', name: 'आंब्याचे लोणचे', emoji: '🫙', qty: 2, price: 220,
+      unit: 'g', packSize: 500,
+    }],
   } as Order
 
   const products: Product[] = []
@@ -30,6 +33,7 @@ test('an order keeps what it needs after the product is gone', () => {
   const line = order.items[0]!
   assert.equal(line.name, 'आंब्याचे लोणचे', 'the name is on the ORDER, not fetched')
   assert.equal(line.price, 220, 'the price paid is the price stored')
+  assert.equal(`${line.packSize} ${line.unit}`, '500 g', 'and so is what the price bought')
   assert.equal(
     products.find((p) => p.id === line.productId),
     undefined,

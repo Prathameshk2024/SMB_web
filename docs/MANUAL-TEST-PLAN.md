@@ -163,7 +163,7 @@ them between runs, or use a fresh number for each row that sends.
 |---|---|---|
 | ☐ B1 | `/login/customer`, enter `123` | Refused on the phone with "10 अंकी मोबाईल नंबर टाका"; no request is sent |
 | ☐ B2 | Enter `1234567890` (starts with 1) | Refused the same way — Indian mobiles start 6–9 |
-| ☐ B3 | Type `+91 98220 11223` into the box | The box keeps digits only, has a fixed "+91" label and stops at 10 digits. (Known bug, 2026-09-28: it keeps `9198220112`, which is valid, so a code goes to the **wrong** number — log it.) Via curl, `POST /api/auth/otp/send {"phone":"+91 98220 11223"}` is accepted and normalised to the ten digits |
+| ☐ B3 | Type `+91 98220 11223` into the box | The box has a fixed "+91" label and ends up holding `9822011223` — the prefix is dropped, not the last digit (`phoneInput`, fixed in `b3df936`; before it the box kept `9198220112` and sent the code to the wrong number). Via curl, `POST /api/auth/otp/send {"phone":"+91 98220 11223"}` is accepted and normalised to the ten digits |
 | ☐ B4 | Type `09822011223` | The box stops at `0982201122` and refuses it. Via curl the server strips the leading `0` and accepts it |
 | ☐ B5 | Enter a valid new number | Toast "OTP पाठवला"; the OTP screen appears and, in demo mode, **shows the 6-digit code** ("चाचणी: खाली दिसणारा 6 अंकी कोड टाका · …"). With the MSG91 widget configured, no code is shown |
 | ☐ B5a | Look under "Send OTP" on the phone screen | "पुढे जाऊन तुम्ही हे मान्य करता:" with links to the Terms of Use and the Privacy Policy |
@@ -362,7 +362,7 @@ listing lands on `PENDING` (`initialListingStatus()` in `shared/src/seller.ts`).
 | ☐ E12b | Choose unit "सेट" / "set" | A second field appears, "एका सेटमध्ये किती नग?" / "How many in one set?", and it is required. The preview prints the size as "1 सेट (6 नग)" |
 | ☐ E13 | Tick "made to order" | Stock is sent as 0 and the stock field is disabled |
 | ☐ E14 | On the preview step, tap any summarised chip ("… · बदला") | Jumps back to that exact step |
-| ☐ E15 | Read the preview, then press the button | The button reads "तपासणीसाठी पाठवा" / "Send for checking", with "प्रशासक तपासून मंजूर केल्यावर तुमचे उत्पादन ग्राहकांना दिसेल." above it. The toast is "उत्पादन तपासणीसाठी पाठवले"; the listing is on her list with the "तपासणी सुरू" / "Being checked" pill and **takes a slot now**. (Known bug, 2026-09-28: the preview still shows a green "लगेच प्रकाशित होईल" notice, which contradicts the note — log it if it is still there) |
+| ☐ E15 | Read the preview, then press the button | The button reads "तपासणीसाठी पाठवा" / "Send for checking", with "प्रशासक तपासून मंजूर केल्यावर तुमचे उत्पादन ग्राहकांना दिसेल." above it. The toast is "उत्पादन तपासणीसाठी पाठवले"; the listing is on her list with the "तपासणी सुरू" / "Being checked" pill and **takes a slot now**. The green notice on the preview reads "तपासणीसाठी जाईल" / "Goes in for checking" — never "लगेच प्रकाशित होईल" (fixed in `b3df936`) |
 | ☐ E16 | Check the customer app | The product is **not** in the catalogue until an admin approves it (L10–L11) |
 | ☐ E16a | Press "नंतर पूर्ण करते" / "Finish later" on the preview | Saved as a DRAFT ("मसुदा जतन झाला"), pill "अपूर्ण" / "Draft", no slot used |
 | ☐ E16b | Try to submit a food listing via curl with `"fssai": "123"` | 400 with `fields.fssai` "FSSAI क्रमांक 14 अंकांचा असतो". There is no FSSAI field on the wizard or the edit page — it arrives only through the API — and a valid 14-digit number shows on the customer's product page as "FSSAI क्रमांक: …" |
@@ -460,6 +460,7 @@ Profile B. This is the money path — do every row.
 | ☐ H1 | Tap "Add to cart" on a grid card | The control turns into − n + in place, and the cart badge shows the total quantity. (On a product page, Add puts one in and goes straight to the cart) |
 | ☐ H2 | Reload | The cart survives (`wb.cart` in localStorage) |
 | ☐ H3 | In the cart, press + and − on a line | Line total, the seller's total and the bottom total all update |
+| ☐ H3b | Put a listing with a size in the cart (list one as "500 ग्रॅम" first; the seed products have none), then press + to 3 | The line under the name reads "500 ग्रॅम · ₹…" — the size of **one** pack — at every quantity; the count is on the stepper and the line total. It never reads "3 ग्रॅम". A seed product shows its unit alone ("किलो · ₹…") |
 | ☐ H3a | Press + on a `p2` line until it stops | + disables at **8** (its stock). On `p9` (made to order) it stops at **20** |
 | ☐ H4 | Press − on a line whose quantity is 1 | The line leaves the cart. There is no separate Remove button (on a grid card, the − at quantity 1 is labelled "ही वस्तू काढा") |
 | ☐ H5 | With a Sunita product in the cart, open a Mangal product | **Refused, and the cart is untouched.** In place of Add: "तुमच्या टोपलीत सुनीता गृहउद्योग यांच्या वस्तू आहेत. एका वेळी एकाच विक्रेतीकडून खरेदी करता येते. आधीची खरेदी पूर्ण करा किंवा टोपली रिकामी करा." and a "टोपली पहा" / "Open cart" button |
@@ -498,7 +499,7 @@ The buyer sees four stages, not five states.
 | ID | What to do | What must happen |
 |---|---|---|
 | ☐ I1 | The seller's "My Business" home | The new order is in the action queue — the most important widget on the screen. (Known bug, 2026-09-28: an ACCEPTED UPI order still waiting for the buyer's money also sits there, titled as ready to pack, with nothing for her to do — log it if still so) |
-| ☐ I2 | Open the order as the seller | Customer name, address, landmark, pincode, items (qty × price), delivery fee, total, and "Call customer" / "Open in Maps". The phone number sits behind the call button |
+| ☐ I2 | Open the order as the seller | Customer name, address, landmark, pincode, items ("500 ग्रॅम · 3 × ₹…" — the size copied onto the order at checkout; an order placed before 28 September 2026 shows "3 × ₹…" alone), delivery fee, total, and "Call customer" / "Open in Maps". The phone number sits behind the call button |
 | ☐ I2a | Open the order placed in H12 (pincode outside her list) | A warning: outside your listed areas, "Pincode 413603. Accept only if you can get there." |
 | ☐ I3 | Open the order as the **customer** | The **seller's phone number is visible immediately**, at PLACED, before she accepts, with call and WhatsApp buttons. The status box reads "विक्रेतीच्या होकाराची वाट" |
 | ☐ I4 | The buttons offered at PLACED | "Accept order" and "Reject" in the action bar; a quiet "या ग्राहकाची तक्रार करा" link below the content |
@@ -518,6 +519,7 @@ The buyer sees four stages, not five states.
 | ☐ I19 | `POST /orders/:id/advance` as a different seller | 404 |
 | ☐ I20 | The customer's My Orders | Three tabs — "चालू", "पूर्ण झालेले", "रद्द झालेले" (a rejected order is under cancelled) — each with a count, newest first. The seller's list has four: needs your attention, accepted, delivered, cancelled |
 | ☐ I20a | On the buyer's order screen, the order number | "ऑर्डर क्र." with a copy icon; tapping it says "ऑर्डर क्रमांक कॉपी झाला". Tapping the status box opens the four-stage tracker |
+| ☐ I20b | On the buyer's order screen and the "order placed" screen, the item lines | The order screen reads "500 ग्रॅम · 3 × ₹…" under the name; "order placed" reads "name (500 ग्रॅम) × 3". The size is the one on the listing at checkout — edit the listing afterwards and the order still shows the old one. An order from before 28 September 2026 shows the count and price only |
 | ☐ I21 | Every status chip | Colour **plus** icon **plus** word. Never colour alone |
 | ☐ I22 | The notification bell, both sides | The count is one per **order**, capped at "9+"; opening the updates list clears it; the last-seen mark survives a reload |
 | ☐ I23 | The updates list after an order has been accepted, packed and sent | **One row** for the order, named after what is in it, wearing its current status pill — not four rows. Only the other side's actions appear |
@@ -589,6 +591,7 @@ Profile A.
 | ☐ K8 | Edit profile: delivery fee `-500` via curl | Refused by the server, not only by the form: 400, `fields.deliveryFee` |
 | ☐ K9 | Edit profile: a pincode of `12ab56` via curl | 400 "6 अंकी पिनकोड टाका" |
 | ☐ K10 | Edit profile: try to change `status`, `packsApproved` or `womenBizId` via curl | Ignored — they are not on the allow-list |
+| ☐ K10a | As a food seller, Edit profile: the "FSSAI क्रमांक" box. Type `123` and save; then `1234 5678 9012 34`; then clear it and save | The box shows her current number. `123` is refused under the box ("FSSAI क्रमांक 14 अंकांचा असतो"); the 14 digits save, and her food listings' product pages print them; blank saves and the number is gone from those pages. A seller who does not sell food and has no number sees no box |
 | ☐ K11 | My Buyers | Every buyer with order count, total bought, last order and a "Repeat buyer" pill above one order. Rejected and cancelled orders are **not** counted as sales |
 | ☐ K12 | Growth screen | Her numbers render; with no DELIVERED order yet it says there is not enough information, and does not crash. There is no Share button |
 | ☐ K13 | Help & Training → replay a walkthrough | The tour runs on the real screen and rings the **real** control, not a drawn copy |
@@ -625,7 +628,7 @@ from the console are in Suites S and T.
 | ☐ L8 | Try to approve with fewer than three boxes ticked (UTR matches, date and time match, money on the statement) | Approve stays disabled ("Tick all three checks to approve"). Via curl without all three in `checks`: **400** |
 | ☐ L8a | Tick all three and approve | Toast "Payment approved. She now has 5 slots."; the row leaves the queue; she becomes ACTIVE with +5 slots and a six-month term. A second approve of the same id is **409** |
 | ☐ L8b | Approve a **renewal** (pill "Renewal") | No slots added; her end date moves six months — from the current end if paid in the reminder week, from the approval if already paused |
-| ☐ L9 | Reject a payment in the console with no reason | The form refuses it. (Known gap, 2026-09-28: via curl the server does **not** refuse it — a missing reason defaults to "UTR did not match the bank statement", and an already-APPROVED payment can be rejected too. Log both) |
+| ☐ L9 | Reject a payment in the console with no reason | The form refuses it. Via curl the server refuses it too: a blank reason is 400, and rejecting a payment that is no longer PENDING (already approved or rejected) is 409 (`rejectProblem`, `b3df936`) |
 | ☐ L10 | Products screen, "To review" tab | The seeded `p4` is there. The tabs are To review / Published / Reported — there is no Rejected tab |
 | ☐ L11 | "Publish" a product | It goes LIVE, appears in the customer catalogue, and the seller is notified **by product name** |
 | ☐ L12 | Reject a product with no reason, via curl | 400 "नाकारण्याचे कारण लिहा" |
@@ -640,7 +643,7 @@ from the console are in Suites S and T.
 | ☐ L20 | Revoke more slots than she has spare | 409 "She is using {used} slots; that would leave {n}" |
 | ☐ L20a | On her page, "₹ Record payment": choose New pack or Renewal, Cash, today's date, and save | 201. The payment appears in Payments already APPROVED, with an info pill "Recorded by staff · Cash", and a renewal moves her end date exactly as the queue does. A future time or one older than 7 days is 400; UPI needs a valid 12-digit UTR (a UTR already on any payment is 409); a pending payment of hers in the queue is 409 — decide that one first. The button is hidden for a closed account |
 | ☐ L21 | Orders screen: filter by status and pincode, and sort | Each narrows the list; newest first by default; each row shows the shop name and a masked buyer. A banner says the console is read-only for orders. (There is no seller filter in the UI; `?sellerId=` is API only) |
-| ☐ L21a | Open an order from far down the list | The detail opens as a `<dialog>` over the list, not below the fold, and shows the SMB id; Esc and a backdrop click close it. If the order ended, it names who stopped it and why |
+| ☐ L21a | Open an order from far down the list | The detail opens as a `<dialog>` over the list, not below the fold, and shows the SMB id; Esc and a backdrop click close it. If the order ended, it names who stopped it and why. Each item line shows its size after the name ("… · 500 ग्रॅम" / "500 g") for an order placed since 28 September 2026 |
 | ☐ L22 | Impact screen | Per-village women count and ₹ earned. Only DELIVERED orders count as earnings |
 | ☐ L23 | The console's language toggle | Both languages complete; no raw `t()` keys on screen. (Known bug, 2026-09-28: the Complaints subject pill prints `help.subject.payment` etc. in both languages, and order statuses are shown untranslated — log them if still so) |
 | ☐ L24 | Idle for over 8 hours, or edit the session's last-seen time in `db.json` | The admin session has expired — 8h idle, far shorter than the seller's 15 days. The console returns to sign-in; no panel keeps re-requesting behind it |
@@ -858,7 +861,7 @@ Profiles A, B and C. Reports and complaints are not seeded; create them here.
 | ☐ S12b | Block a number that has never signed in | Accepted — the customer row is created with the block, so it holds from the first sign-in |
 | ☐ S12c | The same number on the **seller** door | Not blocked — the block is a buyer's |
 | ☐ S12d | Close that buyer's account (T12), then sign in with the number | Still blocked — closing does not lift a block |
-| ☐ S12e | Unblock | From the reported-buyers card's "Unblock", or `npm run admin -- unblock-customer <phone>`. (Known gap, 2026-09-28: a number blocked by typing, with no reports, has no unblock button in the console) |
+| ☐ S12e | Unblock | From the reported-buyers card's "Unblock", from the blocked-numbers list on the Complaints screen (every blocked number, reported or typed in, with reason, when and who — `3f7d30d`), or `npm run admin -- unblock-customer <phone>` |
 
 ### 19.3 The complaints desk
 
@@ -920,7 +923,7 @@ REJECTED or CANCELLED — a PLACED order is open.
 | ID | What to do | What must happen |
 |---|---|---|
 | ☐ T24 | Signed out, open `/delete-account` (also from the landing footer) | Loads with no session and no tabs: the app and college names, a language picker, the four in-app steps with a "लॉगिन करा" button, what is erased, "काय राहते आणि का" (orders, the ₹50 records, reviews and complaints, a blocked number, backups within 12 months), the seller's 7-day window, and a Privacy Policy link |
-| ☐ T25 | "ॲप नसेल तर" | "फोन करा" opens the dialler at +91 9420488874, "व्हॉट्सॲपवर मदत" opens WhatsApp, "ईमेल करा" opens mail with the subject "खाते बंद करण्याची विनंती / Account deletion request". Check the printed address is the college's real one — the code has `principal.jascca@gmail.com`, a commit message spells it `jassca` |
+| ☐ T25 | "ॲप नसेल तर" | "फोन करा" opens the dialler at +91 9420488874, "व्हॉट्सॲपवर मदत" opens WhatsApp, "ईमेल करा" opens mail with the subject "खाते बंद करण्याची विनंती / Account deletion request". The address printed is `principal.jascca@gmail.com` (confirmed in `c63902d`) |
 | ☐ T26 | The same page inside the APK (16.1) | "काय राहते आणि का" does not name the ₹50 |
 
 ---

@@ -301,6 +301,10 @@ const mr: Record<string, string> = {
   'sd.years': 'किती वर्षे',
   'sd.capacity': 'महिन्याची क्षमता',
   'sd.perMonth': 'नग / महिना',
+  // An order line's size (sizeLabel in shared/src/seller.ts) - the same words
+  // the app she ordered from prints.
+  'unit.kg': 'किलो', 'unit.g': 'ग्रॅम', 'unit.piece': 'नग', 'unit.dozen': 'डझन',
+  'unit.litre': 'लिटर', 'unit.ml': 'मिली', 'unit.set': 'सेट',
   'sd.age': 'वय',
   'sd.education': 'शिक्षण',
   'sd.qr': 'QR पोस्टर',
@@ -787,6 +791,8 @@ const en: Record<string, string> = {
   'sd.years': 'Years in business',
   'sd.capacity': 'Monthly capacity',
   'sd.perMonth': 'units / month',
+  'unit.kg': 'kg', 'unit.g': 'g', 'unit.piece': 'piece', 'unit.dozen': 'dozen',
+  'unit.litre': 'litre', 'unit.ml': 'ml', 'unit.set': 'set',
   'sd.age': 'Age',
   'sd.education': 'Education',
   'sd.qr': 'QR poster',

@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (450) + frontend (144) + admin (37) tests
+npm test               # backend (460) + frontend (149) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -494,7 +494,7 @@ Phone notifications (tray, sound, app closed) for the APK, sent by the API throu
 
 **Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
 
-This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the day listings become deletable again, by her or by an admin.
+This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity, price and size from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the day listings become deletable again, by her or by an admin.
 
 **Inside the APK the ₹50 does not exist.** Google Play requires its own billing for anything bought to unlock an app, and forbids in-app links or flows towards another way to pay — and this fee buys slots and time. So `lib/inApk.ts` (true when the wrapper's `ReactNativeWebView` bridge is on the window) switches the seller's side to status only: `/seller/subscription` becomes `ShopRegistration` (is the shop on, slots in use, until when — no price, no QR, no form), `/seller/waiting` redirects there, and **every dictionary key with a `.apk` twin reads the twin** (`lookup()` in `I18nProvider`), so notices, buttons and the updates list lose the price without a screen knowing. `frontend/tests/apk-no-price.test.ts` fails on any new line naming the ₹50 without a twin; pushes go only to the APK, so `pushText.ts` carries the twin wording. She pays the desk or a coordinator, and staff enter it with **Record payment** on her page in the console (`POST /admin/sellers/:id/record-payment`, `recordOutsidePayment()` in `db/subscription.ts`, `backend/tests/outside-payment.test.ts`) — the same `applyApprovedPayment` as the queue, so a renewal moves her date, which `grant-slots` never does. The website keeps its pay screen and queue unchanged.
 
@@ -555,9 +555,22 @@ size cannot be compared with the shop next door.
 
 Both are in `EDIT_COUNTED_FIELDS`: moving 500 g to 250 g at the same price is
 a different product, not a correction. The price itself stays free to change,
-for the reason it always was. `sizeLabel()` in `frontend/src/lib/productSize.ts`
-prints it ("500 ग्रॅम", "1 सेट (6 नग)"); a listing from before the question
-existed has none, and its unit alone is still the honest answer.
+for the reason it always was. `sizeLabel()` in `shared/src/seller.ts` prints
+it ("500 ग्रॅम", "1 सेट (6 नग)") in all three apps, each through its own
+`unit.*` words; a listing from before the question existed has none, and its
+unit alone is still the honest answer.
+
+**Every line with a quantity prints it, and never the quantity in its
+place.** `qty` counts packs; a cart line that printed `{qty} {unit}` turned
+one 50 kg pack into "1 kg × ₹400". `CartItem` copies
+`unit`/`packSize`/`piecesPerPack` when it is added, and the cart line prints
+`sizeLabel()` — the catalogue's first, the copy for a product that has left
+it. `POST /orders` copies the same three onto each `OrderItem` from the
+listing as it is at checkout, so the buyer's order screen, the seller's and
+the console's say "50 kg · 2 × ₹400" rather than two of nothing in
+particular. An order placed before that has no unit, and `sizeLabel()` gives
+`''` for it — no size is better than one guessed from today's listing.
+`frontend/tests/product-size.test.ts` holds it.
 
 ### A food licence number
 
@@ -570,17 +583,22 @@ built for. **A wrong one is refused**: a number that is typed must be exactly
 a buyer who checks a listing's number against the FSSAI register learns
 something only if the digits are real.
 
-It is asked in two places. The seller registration step that asks "do you
-sell food?" shows the box when she says yes, and `Seller.fssai` is shown on
-her admin page; the form does not label it optional, because a field
-labelled that way is one nearly everybody skips. `Product.fssai` is checked
-by `listingProblems` on submit **and by `PATCH /products/:id` on edit** —
-without the second check an edit published "oops" as a licence number — and
-the product page prints it on a food listing that has one. Blank on an edit
-clears it, so a lapsed licence can be taken down. No listing form asks for
-it — the seller agreement says the registration number is seen by staff
-only — so today a listing's number arrives only through the API. Both fields
-are erased when her account is closed.
+**Hers is public, so it is hers to change.** The seller registration step
+that asks "do you sell food?" shows the box when she says yes; the form does
+not label it optional, because a field labelled that way is one nearly
+everybody skips. `Seller.fssai` is on `PublicSeller`, and the product page
+prints `product.fssai || seller.fssai` on every food listing — the seller
+agreement and the privacy policy say so. Because a mistyped or lapsed number
+is then on every jar she lists, `PATCH /sellers/me` takes it and the profile
+edit screen shows the box to a food seller or anyone already holding a
+number, through `editedFssai()`: **blank removes it**, a wrong one is
+refused. A form that omits `fssai` leaves it alone.
+
+`Product.fssai` is checked by `listingProblems` on submit **and by
+`PATCH /products/:id` on edit** — without the second check an edit published
+"oops" as a licence number — and blank on an edit clears it. No listing form
+asks for it, so today a listing's own number arrives only through the API and
+the page shows hers. Both fields are erased when her account is closed.
 
 ### Reporting a listing or a review
 

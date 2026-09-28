@@ -131,7 +131,8 @@ the moment it matters in that story.
   3. [ ] **Your business**: shop name, type, **do you sell food?** This
          decides the categories and fields she sees later. A food seller is
          also offered an **FSSAI number** box: optional, but if typed it must
-         be 14 digits. Admins see it on her page.
+         be 14 digits. It is printed on her food listings, and she can
+         change or remove it later from **Edit profile**.
   4. [ ] **Digital use**: self-reported readiness. This is the "before"
          picture for the Digital Readiness Index.
   5. [ ] **Where your money arrives**: UPI ID, and optionally a photo of her

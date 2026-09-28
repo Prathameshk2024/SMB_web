@@ -7,6 +7,7 @@ import {
 } from '@shared/orderFlow.js'
 import { MAX_DELIVERY_ESTIMATE } from '@shared/orderFlow.js'
 import { sellerCanCancel } from '@shared/orderCancel.js'
+import { sizeLabel } from '@shared/seller.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
 import { api, ApiError } from '../../lib/api.js'
@@ -235,7 +236,9 @@ export function SellerOrderDetail() {
                   <span className="lineicon" aria-hidden="true"><IconProduct /></span>
                   <div>
                     <div style={{ fontWeight: 600 }}>{i.name}</div>
-                    <div className="small dim num">{i.qty} × <Rupees value={i.price} /></div>
+                    <div className="small dim num">
+                      {sizeLabel(i, t) && <>{sizeLabel(i, t)} · </>}{i.qty} × <Rupees value={i.price} />
+                    </div>
                   </div>
                 </div>
                 <Rupees value={i.qty * i.price} />

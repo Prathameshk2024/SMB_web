@@ -175,7 +175,7 @@ The landing page is the first screen a reviewer sees in the APK. Deceptive claim
 | `wait.canDoMeanwhile` (`:1154`) | "Watch the training videos" | There are no videos, only walkthrough tours | Say the tours | **Done**: "see how each screen works". |
 | `wait.title` (`:327`, `:1149`) | "We have received your payment" | Shown before anyone has checked the payment | "Your details have been sent" | **Done**: "Your payment details have been sent". |
 | `lp.w1b` (`:198`, `:1025`) | "Every item made by a woman in the village herself" | Nothing checks this | Soften the wording | **Done**: "A market for what village women make themselves". |
-| Seller agreement (`legal/en.ts:413` + Marathi) | Buyers can see her FSSAI number | FSSAI is stored on the seller and never shown publicly | Show it on the seller card, or change the sentence | **Done**: the sentence now says programme staff can see it. |
+| Seller agreement (`legal/en.ts:413` + Marathi) | Buyers can see her FSSAI number | FSSAI is stored on the seller and never shown publicly | Show it on the seller card, or change the sentence | **Done**, the other way (`b3df936`): her number is on the seller card and printed on her food listings, and the seller agreement and privacy policy say so. She can change or remove it from her profile. |
 
 `lp.wl4` ("Just 50 rupees for 5 products") moved to the ₹50 section, because its fix depends on that decision.
 
@@ -208,7 +208,7 @@ These need a new APK, so do them before building the .aab in step 10. *28 Septem
 ### Contact details
 
 - The support contact is a professor's personal mobile and Gmail (`legal/operator.ts:25-26`). Use a college email address and desk number if you can.
-  - *28 September 2026: partly.* Everyday help and deletion requests now go to `COLLEGE_OFFICE` (`9420488874`, `principal.jassca@gmail.com`, `6ce1add`), which `SUPPORT_PHONE` matches. The grievance officer, whom the law requires by name, is still a personal mobile and Gmail.
+  - *28 September 2026: partly.* Everyday help and deletion requests now go to `COLLEGE_OFFICE` (`9420488874`, `principal.jascca@gmail.com`, `6ce1add`), which `SUPPORT_PHONE` matches. The grievance officer, whom the law requires by name, is still a personal mobile and Gmail.
 - Buyers have no Help or contact card in My Profile; only sellers do. *Done (`27be020`): a Help card with call and WhatsApp in `CustomerProfile`.*
 
 ## Minor

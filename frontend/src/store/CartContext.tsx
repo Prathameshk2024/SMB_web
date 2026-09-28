@@ -82,6 +82,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           emoji: product.emoji,
           price: product.price,
           unit: product.unit,
+          packSize: product.packSize,
+          piecesPerPack: product.piecesPerPack,
           qty,
         },
       ]

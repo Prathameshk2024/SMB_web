@@ -104,7 +104,7 @@ hotspot, the whole room counts as one user (`backend/src/auth/rateLimit.ts`):
 1. [ ] **About you**: name, age, education
 2. [ ] **Village and address**: pick the village from the list; pincode
 3. [ ] **Your business**: shop name, type of business, **do you sell food?** Explain carefully: **this answer is hard to change later**, and it decides which product categories she sees.
-   - A food seller also sees "FSSAI क्रमांक". If she has a food licence, type the 14-digit number from it. If she has none, leave it blank; she can still register.
+   - A food seller also sees "FSSAI क्रमांक". If she has a food licence, type the 14-digit number from it. If she has none, leave it blank; she can still register. Buyers see this number on her food products, so check it digit by digit. She can add, correct or remove it later from Edit profile.
 4. [ ] **Digital use**: tell them there's no right or wrong answer. It is for measuring before and after.
 5. [ ] **Where your money arrives**: UPI ID. ⚠️ **The most important screen.**
    - Have her open PhonePe or GPay and **read the UPI ID from there**. Don't type it from memory.

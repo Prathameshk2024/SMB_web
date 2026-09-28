@@ -5,6 +5,121 @@ why it matters and what "done" looks like, so whoever picks it up does not
 have to rediscover either. Delete an item when it is done — git keeps the
 history.
 
+## Known bugs
+
+*Added 28 September 2026*, from an audit that checked every item against the
+code at `03bd22a`; none of these was fixed at that point. The manual test plan
+carries the same bugs as "Known bug/gap, 2026-09-28" notes on the rows that
+would catch them — clear the note there too when one is fixed. Worst first.
+
+### Harm to a person or to the Play listing
+
+- **An order's quantity is never checked against stock.** `POST /orders`
+  (`orders.routes.ts`, the `g.items.map`) takes `qty: Math.max(1, Number(i.qty))`
+  and only checks that the product is LIVE. A direct API call can order 999
+  jars from a shelf of five, or any amount of a made-to-order item (the cap of
+  20 exists only in the cart). A non-numeric qty gives `NaN` and a total of
+  `NaN`; `1.5` is accepted. Nothing decrements stock either. *Fix:* integer
+  1…`stock` (or 1…20 for made-to-order), else 400 with a Marathi message.
+- **Blocking a seller in her closing week means she is never erased.**
+  `POST /admin/sellers/:id/block` sets `BLOCKED` without looking at `CLOSED`,
+  and `sweepClosedAccounts()` only erases `CLOSED` rows — so the deletion
+  promised on `/delete-account` and in the Play data safety form never
+  happens. Unblocking then sets her `ACTIVE`, reopening a shop she asked to
+  close. The console's Block button stays live through the week
+  (`SellerActions.tsx`). *Fix:* refuse block/unblock on a `CLOSED` seller
+  (409), or let the block ride alongside the close without replacing it.
+- **A false "mark packed" task.** `needsSellerAction()` in `orderFlow.ts`
+  counts every ACCEPTED order, including a UPI one still waiting for the
+  buyer's money (`awaitingCustomerPayment`). My Business lists it as "mark
+  packed", which the server and the Orders screen both forbid. *Fix:* leave it
+  out of `needsSellerAction` while the buyer owes the payment.
+- **The edit screen lets her change fields she has no edits left for.** In
+  `EditProduct.tsx` the veg/non-veg and made-to-order `Choice`s have no
+  `disabled`, though both are in `EDIT_COUNTED_FIELDS`; every other counted
+  field is locked. Save then fails with 409 and any price or stock change in
+  the same save is lost. *Fix:* disable them like the rest.
+
+### Wrong or missing on the console
+
+- **Paused listings cannot be moderated.** Admin Products has only
+  PENDING / LIVE / REPORTED tabs, and `ProductCard` shows actions only for
+  pending or live, so a PAUSED listing — reported or not — can be neither found
+  there nor taken down (her page lists it, with no button). Separately,
+  `POST /admin/products/:id/moderate` has no status gate, so approving a
+  PAUSED listing would make it LIVE.
+- **Raw keys and statuses on screen.** Complaints print `help.subject.*`
+  (the key is missing from `admin/src/i18n/strings.ts`); order and payment
+  statuses print as `OUT_FOR_DELIVERY`, `APPROVED` etc. in `Orders.tsx`,
+  `SellerDetail.tsx` and `components/CloseAccount.tsx`, in both languages.
+- **"Free" delivery for a charge nobody set.** `SellerDetail.tsx` shows
+  `sd.freeDelivery` when `deliveryFee` is 0; the rule is that 0 means "ask the
+  seller" (CLAUDE.md, *One seller per cart*).
+- **The Reported tab's count is wrong.** `reportedCount` in
+  `admin.routes.ts` counts open reports of every target type, so the badge can
+  show a number while the tab is empty. Filter on `targetType === 'product'`.
+- **`npm run admin -- pending` prints "waiting 0h" on every row.** It reads
+  `waitingHours`, which `/admin/payments` stopped sending on purpose; compute it
+  from `submittedAt` as the console's `waited()` does.
+- **The admin CLI falls back to `admin@shantabazar.in` / `changeme`**
+  (`backend/scripts/admin.ts`). It cannot sign in — no admin is seeded and
+  passwords need 12 characters — but it contradicts "no default admin
+  password". Remove the fallback and ask.
+- **Dead dashboard fields.** `openDisputes` is a fixed 0; `gmvMonth` (a
+  duplicate of `womenEarnedMonth`) and `repurchaseRate` are computed and never
+  shown.
+
+### Wrong or missing in the seller and buyer app
+
+- **A buyer's reason for closing her account is thrown away.** The sheet
+  makes her pick one; `api.closeCustomerAccount` sends only `{ confirm }` and
+  `POST /customers/me/close` reads nothing else. Send and store it as the
+  seller path does.
+- **"Not verified" can never go away.** `upiVerified` is set true only in
+  seed data; registration, a UPI change and a close all set it false, and no
+  admin route or CLI sets it true. Every real seller sees a permanent warning
+  on her payment QR and profile, and the readiness factor
+  `hasDigitalFinance` (`readiness.ts`) can never be earned, biasing the
+  before/after index down. *Decide:* add a way for staff to verify, or remove
+  the pill and the factor.
+- **"How many people saw" on My Growth is always 0.** Nothing increments
+  `product.views`; `POST /catalog/share/:slug/scan` has no caller and does not
+  `save()` its count.
+- **A shop with no live listings shows no seller card.** `SellerShop` in
+  `Browse.tsx` takes the seller from `products[0]`; fetch it from
+  `GET /sellers/:id` instead.
+- **The checkout's UPI option says "Pay now"** (`cus.payUpi`) while the notice
+  under it says she pays after the seller accepts.
+- **The seller door's sheet is titled "Selling section" in both directions**
+  (`lp.switchTitle` in `Landing.tsx`); the body switches, the title does not.
+- **Icon-only buttons.** The pause/play button on a My Products row and the
+  shop open/close toggle on My Business have no word and no `aria-label`,
+  against "every icon carries a word".
+- **Small tap targets.** The landing page's language buttons are 34px tall
+  with ~12px text (`.langswitch button`); `.appbar__btn` drops to 40px under
+  400px wide. The rule is 44px targets and 16px text.
+- **The FAQ has questions and no answers** (`help.faq1-3` in `Misc.tsx`), and
+  "Watch training" on the waiting screen promises videos that do not exist
+  (it opens the walkthrough tours).
+- **Pausing or unpausing a listing fails silently** — `togglePause` in
+  `MyProducts.tsx` has no `catch`.
+- **Some refusals are shown in Marathi on the English app.** Upload and edit
+  print the server's `messageMr` for 403 "Not active" and 409 "No edits left"
+  instead of a dictionary line. (The 402 and expired-403 are already mapped,
+  in `submitError.ts` — which has no test; one would keep the ₹50 out of the
+  APK for good.)
+- **Admin seller search misses a formatted number.** `Sellers.tsx` matches
+  the search text against the stored phone as a substring, so
+  "+91 98220 11223" finds nothing; run it through `normalizePhone` first.
+
+### Development only
+
+- **After a failed Firestore connection the boot banner still says
+  Firestore.** `describeConfig()` and the push wiring read the config constant
+  `usingFirestore`, not the runtime `firestoreLive` in `store.ts`. The banner
+  line for Cloudinary off also still says "emoji only", which is no longer
+  true.
+
 ## Give the backup a read-only Firebase key
 
 *Added 25 September 2026.*
