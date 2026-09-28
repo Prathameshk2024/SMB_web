@@ -6,6 +6,12 @@ recovery snapshot (`backend/data/recovery/`), and from each provider's
 published free limits as remembered on that date. No live dashboard was read.
 Section 9 lists what to look up to replace the guesses with real numbers.
 
+Brought up to date 28 September 2026 for what was added since: two new
+collections (`reports`, `complaints`), push tokens on sessions, the
+housekeeping sweeps, and the nightly backup into a second Firebase project
+and Cloudinary account. Counts and sizes marked *23 Sep* are measured on the
+backup copy of 23 September 2026 (`docs/BACKUP.md`).
+
 ---
 
 ## 1. The plans in use
@@ -17,7 +23,10 @@ Section 9 lists what to look up to replace the guesses with real numbers.
 | Cloudinary | not recorded — assumed Free | 25 credits a month. See §6. |
 | Vercel (two projects) | not recorded — assumed Hobby | 100 GB transfer, 1M requests a month. See §7. |
 | MSG91 | pay per SMS | See §8. |
-| Secret Manager, Cloud Build, Artifact Registry, Cloud Storage, Cloud Logging | billed project | All inside free allowances or cents. See §8. |
+| Firestore backup project (`smb-backup-99778`) | **Spark — free**, its own limits | Written nightly by the backup. See §4 *The backup project*. |
+| Cloudinary backup account (`e4bdb893`) | Free | Holds a copy of the photos; delivers almost nothing. See §6. |
+| GitHub Actions | public repository | The nightly backup. Free. See §8. |
+| Secret Manager, Cloud Build, Artifact Registry, Cloud Storage, Cloud Logging, Firebase Cloud Messaging | billed project | All inside free allowances or cents. See §8. |
 
 ---
 
@@ -25,40 +34,56 @@ Section 9 lists what to look up to replace the guesses with real numbers.
 
 | Thing | Firestore documents | Size of each | Firestore writes | Cloudinary |
 |---|---|---|---|---|
-| Seller | 1 | ~1.2 KB (measured: 1,206 B average) | ~4 to register | her payment QR, ~0.2 MB |
-| Product | 1 | ~0.5 KB (measured: 493 B average) | ~3 (create, approve, edit) | ~0.4 MB with thumbnails; ~6 transformations |
-| Order | 1, plus ~1.5 reviews (the buyer must rate every product) | ~1.2 KB + ~0.4 KB per review | ~13 over its life | — |
-| Buyer | 1 | ~0.5 KB | — | — |
-| Sign-in | ~3 auth-log rows + 1 session | ~0.25 KB each | ~4, and one SMS | — |
+| Seller | 1 | ~1.5 KB (measured: 1,206 B average on 13 Sep, 1,506 B on 23 Sep) | ~4 to register | her payment QR, ~0.2 MB |
+| Product | 1 | ~0.5 KB (measured: 493 B, then 459 B on 23 Sep) | ~3 (create, approve, edit); a rejection is one delete | ~0.4 MB with thumbnails; ~6 transformations |
+| Order | 1, plus ~1.5 reviews (the buyer must rate every product) | ~1.2 KB + ~0.4 KB per review (23 Sep: 695 B and 231 B, on short test orders) | ~13 over its life | — |
+| Buyer | 1 | ~0.5 KB (23 Sep: 225 B) | — | — |
+| Sign-in | ~3 auth-log rows + 1 session | ~0.2 KB each (23 Sep: 158 B per auth-log row); a session ~0.45 KB once the APK has given it a push token | ~4, and one SMS | — |
 | Time spent in the app | — | — | 1 per 5 minutes of use (the session's `lastSeenAt`) | — |
-| ₹50 payment | 1 | ~0.5 KB | ~4 | screenshot, ~0.45 MB |
+| Push token | on the session | — | 1 when it changes, and 1 per session it is taken off | — |
+| ₹50 payment | 1 | ~0.5 KB (23 Sep: 405 B) | ~4 | screenshot, ~0.45 MB |
+| Report (listing, review, shop or buyer) | 1 | ~0.3 KB | 1, and 1 when an admin closes it | — |
+| Complaint | 1 | ~0.4 KB | 1, and 1 when resolved | — |
+| Closing an account | — | — | seller: her row and each session at once, then her row, each payment and listing, and every report or complaint naming her a week later; buyer: one per order, review, report, complaint and session she had | a seller's QR, product photos and payment screenshots destroyed |
 
 Built-in ceilings: the auth log keeps at most 5,000 rows or 90 days, a person
-at most 10 sessions, a seller at most 30 notices. **Orders and reviews end up
-as roughly three documents in four** — they are what grows.
+at most 10 sessions, a seller at most 30 notices. Sessions are deleted once
+idle past their window, past their absolute end, or seven days after being
+revoked. `reports` and `complaints` have no ceiling — a closed report or a
+resolved complaint is kept — but they number in the tens or hundreds a year,
+not thousands. **After a year, orders and reviews are roughly three documents
+in four** — they are what grows. **Today it is the auth log:** 767 of the 948
+documents on 23 September (§4, *Where this lands*).
 
 ---
 
 ## 3. Three sizes of market, after one year
 
-| | Now (13 Sep snapshot) | Pilot | District |
+| | Now (23 Sep copy) | Pilot | District |
 |---|---|---|---|
-| Sellers / live products | 6 / 13 | 100 / 400 | 1,000 / 4,000 |
-| Buyers registered / active in a month | not known | 1,000 / 300 | 10,000 / 3,000 |
-| Orders a day | not known | 20 | 200 |
-| **Firestore documents** | under ~1,000 | ~26,000 | ~210,000 |
-| Raw data | under 1 MB | ~16 MB | ~145 MB |
-| Firestore storage (raw × ~3 for indexes) | under 3 MB | ~50 MB | ~450 MB |
-| Firestore writes a day | under 100 | ~1,100 | ~11,000 |
+| Sellers / live products | 19 (11 active) / 24 | 100 / 400 | 1,000 / 4,000 |
+| Buyers registered / active in a month | 17 / not known | 1,000 / 300 | 10,000 / 3,000 |
+| Orders a day | ~4 (65 from 5 to 22 Sep, most of them tests) | 20 | 200 |
+| **Firestore documents** | **948** besides sessions, 767 of them the auth log | ~26,000 | ~210,000 |
+| Raw data | ~0.23 MB | ~16 MB | ~145 MB |
+| Firestore storage (raw × ~3 for indexes) | under 1 MB | ~50 MB | ~450 MB |
+| Firestore writes a day | ~100 (est.: ~45 auth-log rows, ~4 orders × 13) | ~1,100 | ~11,000 |
 | Server memory | ~130 MB | ~230 MB | ~1 GB |
-| Cloudinary stored | ~7 MB | ~0.35 GB | ~3.5 GB |
+| Cloudinary stored | ~7 MB (94 photos, 6.8 MB) | ~0.35 GB | ~3.5 GB |
 | Cloudinary delivered a month | tiny | ~2.5 GB | ~24 GB |
 | Cloudinary credits a month | under 1 | ~3–4 | **~30** |
 | Vercel requests a month | tiny | ~90,000 | **~900,000** |
 | Vercel transfer a month | tiny | ~3 GB | ~25 GB |
-| SMS a month | tens | ~400 (~₹100) | ~4,000 (~₹1,000) |
+| SMS a month | ~400 while testing (243 codes sent 5–22 Sep) | ~400 (~₹100) | ~4,000 (~₹1,000) |
 
 Growth at pilot level is roughly **2,000 Firestore documents a month**.
+
+Where the pilot's ~26,000 come from: 20 orders a day × 365 ≈ 7,300 orders;
+× 1.5 ≈ 11,000 reviews; the auth log at its 5,000-row ceiling; ~1,000
+buyers, ~1,000 sessions, 500 sellers and products, ~300 payments; reports
+and complaints a few hundred at most. The district column is the same sum
+with ten times the orders and people — but the auth log is still 5,000, which
+is why it is four documents in five today and one in forty there.
 
 ---
 
@@ -82,17 +107,20 @@ until the reset.
 
 The server does not read documents one at a time. **Every time it starts, it
 reads every document in the database once**, holds them all in memory, and
-reads Firestore again only at the next start. So:
+reads Firestore again only at the next start. The nightly backup reads the
+same documents once more (below). So:
 
-> **documents × server starts in a day must stay under 50,000.**
+> **documents × (server starts + 1) in a day must stay under 50,000.**
+
+Starts allowed = 50,000 ÷ documents, rounded down, less one for the backup:
 
 | Documents | Starts allowed in a day |
 |---|---|
-| 1,000 | 50 |
-| 5,000 | 10 |
-| 10,000 | 5 |
-| 25,000 | 2 |
-| 50,000 | 1 — and nothing else may read that day |
+| 1,000 | 49 |
+| 5,000 | 9 |
+| 10,000 | 4 |
+| 25,000 | 1 |
+| 50,000 | 0 — the backup alone spends the day |
 
 What counts as a start:
 
@@ -101,16 +129,36 @@ What counts as a start:
 - every deploy, and every environment-variable change, which is a deploy;
 - Cloud Run occasionally restarting an instance on its own.
 
-Two things spend the same quota without starting the server: **browsing data
-in the Firebase console** (one read per document shown), and any script that
-opens the database directly (`admin:users`, `backfill:customers`,
-`purge:demo`) — each such run is one full start's worth.
+Three things spend the same quota without starting the server:
 
-**Where this lands.** Today, with perhaps a few hundred documents, there is
-room for dozens of starts. At pilot growth of ~2,000 documents a month and ten
-starts on a busy day, the line is crossed at about 5,000 documents — **two to
-three months of pilot-level use.** That arrives long before storage, writes or
-memory become a problem.
+- **The nightly backup** (`.github/workflows/backup.yml`, 03:00 IST) reads
+  every document except `sessions` from the live project — one start's worth
+  every day, whether or not anybody used the app. A run by hand from the
+  Actions tab costs the same, dry run or not. On a day the reads are already
+  spent it fails red and the app is unaffected; on a day it runs first, it
+  leaves one start fewer for the afternoon.
+- **Browsing data in the Firebase console** — one read per document shown.
+- **Any script that opens the database directly** (`admin:users`,
+  `backfill:customers`, `purge:demo`, `scrub:auth-ips`, and `restore` into
+  the live project) — each run is one full start's worth. `npm run admin`
+  goes through the API and reads nothing itself.
+
+After boot the API itself never reads Firestore: every request, and the
+housekeeping every 15 minutes (§5), work on memory. The housekeeping does
+write — pruning the auth log and dead sessions deletes, in steady state,
+about as many rows a day as sign-ins add, tens a day against 20,000 deletes.
+
+**Where this lands.** On 23 September there were 948 documents besides
+`sessions` (which the backup copy leaves out) — room for about 51 starts —
+and **767 of them were the auth log**: a row for every code sent, every
+sign-in, sign-out and failure, about 45 a day during September's testing,
+pruned only at 90 days or 5,000 rows. At that rate the auth log alone
+reaches ~4,000 rows (45 × 90) by early December 2026, with no new seller or
+order, and the database ~4,200 documents: 10 starts a day. With
+pilot growth of ~2,000 documents a month and ten starts on a busy day, the
+line is crossed at about 4,500 documents (50,000 ÷ 11) — **two to three
+months of pilot-level use**, and sooner if sign-ins stay at the testing rate.
+That arrives long before storage, writes or memory become a problem.
 
 ### What happens when a limit is hit
 
@@ -164,6 +212,35 @@ At Cloud Run's default 512 MiB that tops out around **50,000 documents
 (~50–60 MB of data)**, where each save starts costing a noticeable fraction of
 a second. On Spark the read limit arrives first.
 
+### The backup project (a second Spark plan)
+
+The nightly run writes into `smb-backup-99778`, a separate Firebase project
+on its own Spark plan (`docs/BACKUP.md`). It spends that project's quota, not
+the live one's:
+
+- **Reads, a night:** the mirror first reads every backed-up document there
+  to find what changed — as many as live has — then lists the stored copies
+  three times (one read per part; a copy is one part today, and up to ~41
+  copies are kept) and reads tonight's copy back to check it. About
+  **documents + 130** once the copies have built up. Fine until the live database
+  nears 50,000 documents; past that the backup project's own read is refused
+  and the run fails every night. Live on Spark would have run out long
+  before, so by then both projects are on Blaze.
+- **Writes, a night:** only documents that changed, one per part of
+  tonight's copy, and a delete per part pruned.
+- **Storage:** the mirror, the same size as live, plus the dated copies — up
+  to 30 daily and ~11 monthly. A copy is the database gzipped: 42 KB on
+  23 September, about a fifth of the raw data. So:
+  - pilot: 16 MB ÷ 5 ≈ 3 MB a copy; 30 × 3 MB + 11 × ~1.5 MB (the monthly
+    copies are older, so smaller) ≈ 110 MB, plus the ~50 MB mirror —
+    comfortable;
+  - district: 145 MB ÷ 5 ≈ 29 MB a copy; 30 × 29 MB + 11 × ~15 MB ≈ 1 GB,
+    plus the ~450 MB mirror — **past the 1 GiB Spark ceiling** during the
+    district year. Before then: Blaze on the backup project too, or a
+    shorter `BACKUP_KEEP_DAYS`. A full project refuses every write, the
+    copy's and the mirror's, and the run goes red each night until it is
+    fixed.
+
 ---
 
 ## 5. Cloud Run
@@ -181,13 +258,23 @@ poll:
 | Poll | Every | Pauses when hidden? |
 |---|---|---|
 | Admin console stats (`admin/src/components/Shell.tsx`) | 60 s | **Yes, since 18 Sep 2026** |
-| Seller waiting for payment approval (`frontend/src/screens/seller/Subscription.tsx`) | 10 s | **Yes, since 18 Sep 2026** |
+| Seller waiting for payment approval (`frontend/src/screens/seller/Subscription.tsx`) | 10 s | **Yes, since 18 Sep 2026.** Website only since 27 Sep: inside the APK that screen redirects to her shop's status, which does not poll |
 | Buyer's rating gate (`RateOrderGate`) | 2 min | Yes, always did |
 
 Before 18 September, an admin tab left open overnight kept the instance up
 all night, and so did a seller's phone left on the payment-waiting screen for
 the day an approval can take. Now the instance is up only while someone is
 actually using an app, plus the ~15 minutes after.
+
+Two things that run on a clock do **not** keep it up. The housekeeping timer
+in `backend/src/index.ts` — every 15 minutes it prunes rate-limit windows,
+dead sessions and auth-log rows past 90 days, sweeps rejected listings left
+by the old 48-hour rule, and erases accounts whose seven days are up
+(`sweepClosedAccounts`) — runs only while an instance already exists. The
+listing and closed-account sweeps also run at every start (with
+`purgeArchived`), so an erasure that fell due while no instance was up
+happens at the next one. The nightly backup talks to Firestore and
+Cloudinary directly and never calls the API.
 
 Rough monthly cost: a few hours of use a day stays within the free allowance
 or costs a few dollars; all-day use approaches $44.
@@ -201,16 +288,31 @@ transformations**, and there are 25 a month.
 
 - **Stored**: ~0.4 MB per product with its thumbnails, ~0.2 MB per seller QR,
   ~0.45 MB per payment screenshot. Photos are compressed on the phone first
-  (`frontend/src/lib/compress.ts`).
+  (`frontend/src/lib/compress.ts`). Measured on 23 September: 94 originals in
+  6.8 MB, about 70 KB each — well under the estimate, which also counts the
+  thumbnails Cloudinary stores beside them (not measured).
 - **Delivered**: product cards and pages ask for resized WebP/AVIF
-  (`cloudinaryThumb`), about 0.5–1.5 MB for a buyer's browsing session. The
+  (`cloudinaryThumb`), about 0.5–1.5 MB for a buyer's browsing session. Since
+  26 September 2026 they are plain lazy `<img>`s; before that every card on a
+  list downloaded its photo on mount, whether or not she scrolled to it. The
   admin screens load photos and screenshots **full size**.
 - **Ceiling**: at about **2,500–3,000 buyers active in a month** the 25 credits
   run out, nearly all of it delivery. The next plan up costs real money each
   month.
-- **Rejected listings**: since 19 September 2026 the 48-hour sweep destroys the
-  photo along with the row. Before that the photo stayed in Cloudinary for
-  ever; those already left behind are not cleaned up retroactively.
+- **Photos that are destroyed**: since 26 September 2026 rejecting a listing
+  deletes it and its photo at the decision; `purgeRejected()` sweeps rows left
+  by the old 48-hour rule, which destroyed the photo too from 19 September.
+  Deleting a draft destroys its photo, and erasing a closed account destroys
+  her QR, product photos and payment screenshots. Photos orphaned before
+  19 September are not cleaned up retroactively.
+- **The backup account** (`e4bdb893`, its own Free plan) holds a copy of each
+  original — no thumbnails — and delivers nothing until a restore, so its
+  credits are storage alone: less than the live account's ~3.5 GB at
+  district size, well inside 25. Each
+  night's run copies only photos it does not have, by URL, so each new photo
+  is delivered once from the live account (its original, ~0.1–0.5 MB), and
+  lists both folders through the Admin API, which has an hourly call limit
+  but costs no credits.
 
 ---
 
@@ -231,7 +333,9 @@ charging ₹50 subscriptions fits that is worth checking before it grows.
 
 | Service | Use | Limit | Verdict |
 |---|---|---|---|
-| **MSG91** | one SMS per sign-in; a seller signs in at least every 90 days, a buyer after 15 idle days; +~25% retries | at most 3 per number per day | ~₹0.2–0.3 each; ₹100–1,000 a month across §3 |
+| **MSG91** | one SMS per sign-in; a seller or buyer signs in again after 15 idle days, and at least every 90 days; +~25% retries. The demo number for Play's reviewers is sent none | at most 3 per number per day | ~₹0.2–0.3 each; ₹100–1,000 a month across §3 |
+| **Firebase Cloud Messaging** | one push to the other side at each order step, UTR and admin notice; APK only | no charge | Free. Tokens live on the in-memory sessions, so a send reads nothing from Firestore |
+| **GitHub Actions** | the nightly backup, a few minutes a run | free for a public repository | Free. Scheduled workflows stop after 60 days without a commit (`docs/BACKUP.md`) |
 | **Secret Manager** | 4 secrets, read at every start | 6 active versions and 10,000 reads a month free | Free. Disable old versions when rotating. |
 | **Cloud Build** | one build per deploy, ~3–6 minutes | 2,500 build-minutes a month free | Free |
 | **Cloud Logging** | request logs and the app's own lines | 50 GiB a month free | Free |
@@ -286,11 +390,20 @@ the one that turns into an outage (§4).
     database*, and *Server starts a day the free read limit covers*;
   - the **Cloud Run log** at every start, e.g.
     `[firestore] loaded 812 documents (61 starts a day fit in the free 50000 reads): sellers 6 · products 13 · …`
-    — all nine collections. At **10 starts a day or fewer** (about 5,000
-    documents) the next line is a warning.
+    — all eleven collections (`sellers`, `products`, `orders`, `payments`,
+    `customers`, `reviews`, `reports`, `complaints`, `sessions`, `admins`,
+    `authEvents`). At **10 starts a day or fewer** (about 5,000 documents)
+    the next line is a warning.
+
+  Neither figure allows for the nightly backup's read: the real number of
+  starts is **one fewer** than the tile and the log line say.
 - **Starts per day**: count the `[firestore] loaded` lines in the Cloud Run
-  logs for a day, and compare with the second admin tile. When the two meet,
-  the next start is refused and the API is down until the reset.
+  logs for a day, and compare with the second admin tile less one. When the
+  two meet, the next start is refused and the API is down until the reset.
+- **The backup**: the Actions tab shows each night's run; red means it did not
+  finish (`docs/BACKUP.md` §5 has the log lines). Its reads show on the live
+  project's Usage graph at about 03:00 IST, and its writes and storage on the
+  backup project's.
 
 To replace the estimates in this file with real figures:
 
@@ -298,7 +411,9 @@ To replace the estimates in this file with real figures:
   minimum instances, the image in use;
 - Firebase console — Firestore location, whether it is the `(default)`
   database, and the Usage tab;
-- Cloudinary dashboard — credits used this month, and the plan;
+- Firebase console for `smb-backup-99778` — its Usage tab and stored bytes;
+- Cloudinary dashboard — credits used this month, and the plan, for both
+  accounts;
 - Vercel → Usage, and the plan on both projects;
 - MSG91 — the per-SMS rate on the account.
 

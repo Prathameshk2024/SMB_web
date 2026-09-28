@@ -11,7 +11,7 @@ frontend/   seller + customer app  (React + Vite, also shipped inside an Android
 admin/      admin console          (React + Vite, deployed as its own site)
 backend/    Express API for both   (includes /api/admin/*)
 shared/     types and domain rules imported by all three
-docs/       product spec, deployment, manual test plan, Marathi style guide
+docs/       spec, deployment, backups, capacity, Play Store, testing, training, Marathi style
 ```
 
 ## Run it
@@ -51,9 +51,9 @@ later, stop the API, delete `backend/data/db.json`, and start it again.
 
 Copy `backend/.env.example` to `backend/.env`, and `frontend/.env.example` to
 `frontend/.env`. Every integration is optional: with an empty `.env` the API
-uses a JSON file instead of Firestore, emoji instead of Cloudinary photos, and
-the on-screen OTP instead of MSG91. The boot banner lists what is live. The
-comments in `backend/.env.example` explain each variable.
+uses a JSON file instead of Firestore, category pictures instead of uploaded
+photos, and the on-screen OTP instead of MSG91. The boot banner lists what is
+live. The comments in `backend/.env.example` explain each variable.
 
 `VITE_*` values are compiled into the public JavaScript bundle. Never put a
 secret such as `MSG91_AUTH_KEY` in one.
@@ -81,5 +81,21 @@ branch `sub-main`. See
 - [`docs/FEATURE-SPEC.md`](docs/FEATURE-SPEC.md): the product specification.
 - [`docs/MARATHI-STYLE.md`](docs/MARATHI-STYLE.md): read it before writing any
   Marathi text.
+- [`docs/DEPLOY.md`](docs/DEPLOY.md): Cloud Run, both Vercel projects and the
+  Android wrapper.
+- [`docs/BACKUP.md`](docs/BACKUP.md): the nightly backup and how to restore.
+- [`docs/CAPACITY.md`](docs/CAPACITY.md): free-tier limits and what breaks
+  first.
 - [`docs/MANUAL-TEST-PLAN.md`](docs/MANUAL-TEST-PLAN.md): what to click
   through before a release.
+- [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md): a presentation walking
+  through every feature on one laptop.
+- [`docs/TRAINING-CHECKLIST.md`](docs/TRAINING-CHECKLIST.md): running a
+  training session for sellers.
+- [`docs/PLAY-STORE.md`](docs/PLAY-STORE.md): the Play Console's data safety
+  and policy answers.
+- [`docs/PLAY-READINESS-REVIEW.md`](docs/PLAY-READINESS-REVIEW.md) and
+  [`docs/PLAY-WORK-SPLIT.md`](docs/PLAY-WORK-SPLIT.md): the Play readiness
+  findings and who is doing what about them.
+- [`docs/FUTURE-SCOPE.md`](docs/FUTURE-SCOPE.md): work decided on and left
+  for later.
