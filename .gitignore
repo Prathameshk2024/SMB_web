@@ -24,4 +24,4 @@ coverage/
 google-services.json
 *serviceAccount*.json
 *firebase-adminsdk*.json
-current-changes.patch
+current-changes.patch.claude/
