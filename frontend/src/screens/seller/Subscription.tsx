@@ -12,6 +12,7 @@ import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
 import { shortDate } from '../../lib/notifications.js'
 import { inApk } from '../../lib/inApk.js'
 import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
+import { supportWhatsapp } from './Misc.js'
 import {
   AppBar, Button, Card, CopyValue, EmptyState, Field, Loading, Notice,
   Rupees, TextInput, useAsync,
@@ -44,6 +45,17 @@ function ShopRegistration({ data }: { data: Awaited<ReturnType<typeof api.subscr
   const { slots, subscription } = data
   const switchedOn = data.status === 'ACTIVE' || slots.total > 0
   const expired = subscription?.state === 'expired'
+  /**
+   * Help goes straight to the office's WhatsApp, not to the Help page: a
+   * woman who has just registered and sees "not switched on yet" has one
+   * thing to ask, and the office needs to know who is asking it.
+   */
+  const [me] = useAsync(() => api.me(), [])
+  const s = me?.seller
+  const who = s && { name: s.name, id: s.womenBizId, phone: s.phone }
+  const whatsappHref = supportWhatsapp(
+    who && (switchedOn ? t('help.waGeneral', who) : t('help.waRegistered', who)),
+  )
 
   return (
     <>
@@ -68,9 +80,9 @@ function ShopRegistration({ data }: { data: Awaited<ReturnType<typeof api.subscr
             </Card>
           </>
         )}
-        <Button variant="ghost" onClick={() => nav('/seller/help')}>
+        <a className="btn btn--ghost" href={whatsappHref} target="_blank" rel="noreferrer">
           <IconWhatsapp aria-hidden="true" /> {t('wait.contactHelp')}
-        </Button>
+        </a>
       </div>
     </>
   )

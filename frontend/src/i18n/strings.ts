@@ -774,6 +774,9 @@ const mr: Record<string, string> = {
   'prof.readiness': 'डिजिटल स्कोअर',
   'help.title': 'मदत व प्रशिक्षण', 'help.faq': 'नेहमीचे प्रश्न',
   'help.contact': 'आमच्याशी बोला', 'help.whatsapp': 'व्हॉट्सॲपवर मदत',
+  // Typed into WhatsApp for her; she only presses Send. Never a price here.
+  'help.waRegistered': 'नमस्कार, मी शांताई महिला बाजारात विक्रेती म्हणून नोंदणी पूर्ण केली आहे. माझे दुकान सुरू करण्यासाठी मदत हवी आहे.\nनाव: {name}\nSMB क्रमांक: {id}\nनोंदणीचा फोन: {phone}',
+  'help.waGeneral': 'नमस्कार, मी शांताई महिला बाजारची विक्रेती आहे. मला मदत हवी आहे.\nनाव: {name}\nSMB क्रमांक: {id}\nनोंदणीचा फोन: {phone}\nमाझी अडचण: ',
   'help.call': 'फोन करा', 'help.complaint': 'तक्रार नोंदवा',
   'help.complaintSub': 'काय अडचण आहे ते लिहा. प्रशासक तुमचे खाते पाहून उत्तर देतील.',
   'help.complaintPlaceholder': 'काय झाले ते थोडक्यात लिहा',
@@ -1611,6 +1614,8 @@ const en: Record<string, string> = {
   'prof.readiness': 'Digital score',
   'help.title': 'Help & Training', 'help.faq': 'Common questions',
   'help.contact': 'Talk to us', 'help.whatsapp': 'Help on WhatsApp',
+  'help.waRegistered': 'Hello, I have finished registering as a seller on Shantai Mahila Bazar and need help getting my shop started.\nName: {name}\nSMB ID: {id}\nRegistered phone: {phone}',
+  'help.waGeneral': 'Hello, I sell on Shantai Mahila Bazar and need some help.\nName: {name}\nSMB ID: {id}\nRegistered phone: {phone}\nMy problem: ',
   'help.call': 'Call us', 'help.complaint': 'Raise a complaint',
   'help.complaintSub': 'Write what went wrong. An admin will open your account and answer.',
   'help.complaintPlaceholder': 'Say briefly what happened',
