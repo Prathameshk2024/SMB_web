@@ -8,7 +8,9 @@ rules_version = '2';
  * - a future admin console, a debugging script, a leaked web config - it can
  * read and write nothing.
  *
- * Deploy:  firebase deploy --only firestore:rules
+ * Publish: paste this file into Firebase console -> Firestore Database ->
+ * Rules. The repo has no firebase.json, so `firebase deploy` needs one
+ * written first - docs/DEPLOY.md, section 4, step 5.
  */
 service cloud.firestore {
   match /databases/{database}/documents {

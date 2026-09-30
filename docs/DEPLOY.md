@@ -379,12 +379,22 @@ passes:
 3. Set `CORS_ORIGIN` on Cloud Run to the two Vercel URLs (the `^;^` command in
    §3). That makes a new revision — the same quiet-moment rule applies.
 4. Add the project-1 Vercel URL to the MSG91 widget's allowed domains.
-5. Deploy the Firestore rules in `firestore.rules`. The repo has no
-   `firebase.json`, so `firebase deploy --only firestore:rules` has nothing to
-   read from a clone: paste the file into Firebase console → Firestore
-   Database → Rules and publish, or first write a local `firebase.json` of
-   `{ "firestore": { "rules": "firestore.rules" } }` and then run it with
-   `--project <PROJECT_ID>` (there is no `.firebaserc` either).
+5. Publish the Firestore rules in `firestore.rules`: paste the file into
+   Firebase console → Firestore Database → Rules and press Publish. The repo
+   has no `firebase.json`, so `firebase deploy --only firestore:rules` has
+   nothing to read from a clone; to use the CLI instead, first write a local
+   `firebase.json` of `{ "firestore": { "rules": "firestore.rules" } }` and
+   run it with `--project <PROJECT_ID>` (there is no `.firebaserc` either).
+
+   Do it the day the database is created. A project started in **Test Mode**
+   lets anyone who knows the project ID read and write every document for 30
+   days — every seller's phone and address, and writes that skip every rule
+   the API enforces. Nothing in the app shows it either way: `firebase-admin`
+   bypasses rules, so the API works the same under allow-all and deny-all, and
+   Firebase's expiry email is the only warning. The live project sat on Test
+   Mode's rules until that email arrived; these were published on 30
+   September 2026. If Storage is enabled, set its Rules tab to deny-all too —
+   photos live on Cloudinary.
 6. Check the boot banner shows Firestore, Cloudinary, the MSG91 widget and both
    origins.
 7. Log in once on a real phone. The widget path is the one thing here that
@@ -404,7 +414,7 @@ passes:
 - [ ] `CORS_ORIGIN` set to both origins
 - [ ] Cloud Run maximum instances is 1
 - [ ] Cloud Run CPU is always allocated (`cpu-throttling: 'false'`)
-- [ ] `firestore.rules` deployed
+- [ ] `firestore.rules` published in the console — not Test Mode's allow-all rules (live project: done 30 September 2026)
 - [ ] `SEED_DEMO_DATA` unset (the server refuses to boot in production with it set)
 - [ ] `ADMIN_UPI_*` either unset (the college account) or checked character by character against the account's own UPI app
 - [ ] No `BACKUP_*` variable on Cloud Run
