@@ -233,10 +233,29 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  */
 export const SUPPORT_PHONE = '9420488874'
 
+/**
+ * WhatsApp to the office with her details already typed. A blank chat from an
+ * unknown number gets "who is this, which shop?" as its first reply; her name,
+ * SMB number and registered phone let the office find her in the console
+ * before answering. She still presses Send - WhatsApp never sends for an app.
+ * No price in any of these texts: inside the APK, a line steering her towards
+ * paying outside Google Play is not ours to write.
+ */
+export function supportWhatsapp(text?: string): string {
+  const base = `https://wa.me/91${SUPPORT_PHONE}`
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base
+}
+
 export function SellerHelp() {
   const t = useT()
   /** Open while she is writing what went wrong. */
   const [complaining, setComplaining] = useState(false)
+  /** Until it answers the chat opens blank, which is what it always did. */
+  const [me] = useAsync(() => api.me(), [])
+  const s = me?.seller
+  const whatsappHref = supportWhatsapp(
+    s && t('help.waGeneral', { name: s.name, id: s.womenBizId, phone: s.phone }),
+  )
 
   return (
     <>
@@ -255,13 +274,13 @@ export function SellerHelp() {
         <ComplaintSheet
           open={complaining}
           onClose={() => setComplaining(false)}
-          whatsappHref={`https://wa.me/91${SUPPORT_PHONE}`}
+          whatsappHref={whatsappHref}
         />
 
         <Card data-wt="help-contact">
           <SectionTitle>{t('help.contact')}</SectionTitle>
           <div className="stack-sm">
-            <a className="btn btn--ghost" href={`https://wa.me/91${SUPPORT_PHONE}`} target="_blank" rel="noreferrer">
+            <a className="btn btn--ghost" href={whatsappHref} target="_blank" rel="noreferrer">
               <IconWhatsapp aria-hidden="true" /> {t('help.whatsapp')}
             </a>
             <a className="btn btn--ghost" href={`tel:+91${SUPPORT_PHONE}`}>
