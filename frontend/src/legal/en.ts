@@ -100,7 +100,7 @@ export const en: LegalSet = {
           {
             list: [
               'Anyone, without signing in, can see a seller\'s public shop card: name, photo, shop name, SMB ID, village, delivery terms, the pincodes she delivers to, her UPI ID and QR code, her FSSAI number if she sells food and gave one, and her rating. They can also see her live products and their reviews. A reviewer is shown by first name only.',
-              'A seller\'s phone number is shown only to a buyer who has placed an order with her, on that order.',
+              'A seller\'s phone and WhatsApp numbers are not on her public card. A buyer who has placed an order with her sees them on that order. Before ordering, any signed-in buyer can ask for them with "Ask about delivery" in the cart, one shop at a time and only while that shop is open.',
               'A seller sees the name, phone number and delivery address of each buyer who orders from her.',
               'A seller never learns who reported her listing.',
               'College staff who run the market can see all of the above, so they can check listings and payments and answer complaints. Only named staff with their own password have this access.',
@@ -145,7 +145,7 @@ export const en: LegalSet = {
               'If a buyer\'s number was blocked for misuse, we keep that number after her account is deleted, only so the block still holds.',
             ],
           },
-          'We keep backup copies of the database so the market can be restored after a failure. Deleted information leaves the nightly backup copy the next night, and the dated monthly copies within 12 months. A backup is never used to bring back an account you deleted.',
+          'We keep backup copies of the database so the market can be restored after a failure. Deleted information leaves the nightly backup copy the next night, the dated daily copies within 30 days, and the dated monthly copies within 12 months. A backup is never used to bring back an account you deleted.',
         ],
       },
       {
@@ -255,7 +255,7 @@ export const en: LegalSet = {
               'Orders can be delivered only to pincodes in Maharashtra.',
               'Your basket holds products from one shop at a time.',
               'When you place an order, the seller decides whether she can deliver it. She may accept or reject it.',
-              'If the delivery charge shows "ask the seller", the seller will tell you the charge. Her phone number appears on your order as soon as you place it.',
+              'If the delivery charge shows "ask the seller", the seller will tell you the charge. To ask her first, tap "Ask about delivery" in your cart to call or WhatsApp her. Her phone number also appears on your order as soon as you place it.',
               'The seller tells you how long delivery will take, and she arranges the delivery herself.',
             ],
           },
@@ -441,7 +441,7 @@ export const en: LegalSet = {
         id: 'public',
         heading: 'What buyers see about you',
         body: [
-          'Your shop card is public: name, photo, shop name, SMB ID, village, delivery terms, the pincodes you deliver to, UPI ID and QR code, your FSSAI number on food listings, and the rating from your products\' reviews. Your phone number is shown only to buyers who have ordered from you, on their order. The Privacy Policy has the rest.',
+          'Your shop card is public: name, photo, shop name, SMB ID, village, delivery terms, the pincodes you deliver to, UPI ID and QR code, your FSSAI number on food listings, and the rating from your products\' reviews. Your phone and WhatsApp numbers are not on the card. A buyer who orders from you sees them on the order, and while your shop is open any signed-in buyer can ask for them from the cart ("Ask about delivery"), to call or WhatsApp you before ordering. The Privacy Policy has the rest.',
         ],
       },
       {
