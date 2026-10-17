@@ -36,9 +36,10 @@ somebody restores from one.
 
 **How long deleted data survives in a backup, in one sentence for the privacy
 policy:** a person's data is gone from the nightly mirror and the backup
-photos on the night after it is deleted live, and from the dated copies
-within 12 months (`BACKUP_KEEP_DAYS` and `BACKUP_KEEP_MONTHS` are the two
-numbers; the months can be shortened, never lengthened).
+photos on the night after it is deleted live, from the dated daily copies
+within 30 days, and from the dated monthly copies within 12 months
+(`BACKUP_KEEP_DAYS` and `BACKUP_KEEP_MONTHS` are the two numbers; either can
+be shortened, never lengthened).
 
 **Nobody has to do anything to keep that promise**, with one exception:
 the Backup workflow has to stay enabled, because it is also what prunes.

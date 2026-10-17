@@ -102,9 +102,9 @@ All twelve Track 1 tasks are on `play/server`. What Track 2 needs from them:
 - [x] Move the demo login to `9999999999`, the number now set in MSG91's Demo Credentials: `DEMO_PHONE`, its tests and the docs. The OTP stays out of this repo. *Done (`86e89e6`) on 28 September; the API deploy that carries it is still to do.*
 - [x] Keep `9579642050` as a demo number beside `9999999999`, which a check outside this repo refuses: `DEMO_PHONES` in `backend/src/demo.ts` holds both, one demo world. *Done on 28 September; the API deploy that carries it is still to do.*
 - [ ] Re-test both demo logins (`9579642050`, `9999999999`) on the live site, after the API deploy that carries `DEMO_PHONES`. *Not verifiable from this repo.*
-- [ ] Prepare the demo data: the review's *App access → Production data to prepare* checklist. *Not verifiable from this repo. The reset runbook it asks for is not in `docs/PLAY-STORE.md` yet.*
+- [ ] Prepare the demo data: the review's *App access → Production data to prepare* checklist. *Not verifiable from this repo. The reset runbook is in `docs/PLAY-STORE.md`, *Resetting the demo account* (17 October 2026).*
 - [ ] Fill in Play Console → App access from the review's draft text, and the Data safety form from `docs/PLAY-STORE.md`. *Not verifiable from this repo. PLAY-STORE.md was re-checked against the code on 28 September; fix the two text gaps it lists first.*
 - [x] **The ₹50 fee:** decide between options A, B and C, then build it. See the review's last section. Under option A this touches both tracks' files, so one person does it, or you split it the same way: server (Track 1) and screens (Track 2). *Option A, built in `77110fa`.*
-- [ ] Build the .aab with the upload keystore, upload it to closed testing, and start the 12-tester, 14-day test. *Not verifiable from this repo.*
+- [x] Build the .aab with the upload keystore, upload it to closed testing, and start the 12-tester, 14-day test. *Done: production access granted on 17 October 2026.*
 
 **Uploads to closed testing are reviewed too.** A build that still shows the in-app ₹50 payment could be flagged at that first review. If you want the 14-day clock started before the ₹50 step, accept that risk; otherwise do the ₹50 step before the first upload. *No longer a risk once the frontend with `77110fa` is live: the APK loads the website.*

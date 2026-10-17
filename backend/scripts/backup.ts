@@ -76,10 +76,12 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const BACKUP_DIR = process.env.BACKUP_DIR?.trim()
   ? path.resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BACKUP_DIR.trim())
   : path.join(here, '../data/backups')
-const KEEP_DAYS = Math.max(1, Number(process.env.BACKUP_KEEP_DAYS) || 30)
-// Twelve is a ceiling, not only a default: the privacy policy and the delete
-// page say deleted information leaves the monthly copies within 12 months,
-// so an environment variable may shorten that but never stretch it.
+// Both numbers are ceilings, not only defaults: the privacy policy says
+// deleted information leaves the dated daily copies within 30 days and the
+// monthly copies within 12 months, so an environment variable may shorten
+// either but never stretch it.
+const MAX_KEEP_DAYS = 30
+const KEEP_DAYS = Math.min(MAX_KEEP_DAYS, Math.max(1, Number(process.env.BACKUP_KEEP_DAYS) || MAX_KEEP_DAYS))
 const MAX_KEEP_MONTHS = 12
 const KEEP_MONTHS = Math.min(MAX_KEEP_MONTHS, Math.max(1, Number(process.env.BACKUP_KEEP_MONTHS) || MAX_KEEP_MONTHS))
 

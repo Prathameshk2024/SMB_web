@@ -6,6 +6,8 @@ The findings below are kept as they were written, so the evidence and line numbe
 
 ## Where things stand
 
+**17 October 2026: production access granted** after the closed test. The sections below are kept as the record of how the app got there.
+
 **Not ready to submit yet.** The native Android side passes: target API 36, 16 KB page size, permissions. What remains is web-app work, plus the ₹50 decision, which is deliberately **the last step** in the work order below.
 
 **28 September 2026:** almost all the web-app work is done, and the ₹50 went with option A (`77110fa`). Both tracks were merged into `prathamesh2` (`5fd8861`) and pushed, so Vercel has the frontend and admin console. What is left: deploy the API to Cloud Run (not verifiable here), the upload keystore, the wrapper hardening, the demo data in production, two text gaps (the in-APK deletion page, see *Privacy policy and Data safety form*), and the closed test.
@@ -46,7 +48,7 @@ Work through these in order. Each step points to its details further down. The *
 - [x] **7. Minor issues.** See *Minor*. *Done, apart from forced ratings, which stays by design.*
 - [ ] **8. Deploy:** the API to Cloud Run when nobody is ordering, then the frontend and admin on Vercel. Re-test the demo login. *Partly: `prathamesh2` is pushed, so Vercel builds from it; the Cloud Run revision and the demo re-test are not verifiable from this repo. If the frontend went out before the API, report buttons for shops and buyers are refused until the API catches up.*
 - [x] **9. The ₹50 fee (B2), last:** decide between A, B and C, then build it. See *The ₹50 fee*. *Option A, built (`77110fa`).*
-- [ ] **10. Build the .aab, upload it to closed testing, and run the 12-tester, 14-day test.** Then apply for production. *Not verifiable from this repo.*
+- [x] **10. Build the .aab, upload it to closed testing, and run the 12-tester, 14-day test.** Then apply for production. *Done: Google granted production access on 17 October 2026. The production release itself (countries, release notes, review) is the next step; reset the demo account first (`docs/PLAY-STORE.md`, *Resetting the demo account*).*
 
 **One risk in this order.** Uploads to closed testing are reviewed too. A closed-testing build that still shows the in-app ₹50 payment could be flagged under the Payments policy before step 9 is done. If you want the 14-day clock running early, the lowest-risk way is to finish step 9 first, since option A is small. Otherwise accept that the first closed-test review may raise it. *28 September: resolved, because step 9 is built. The APK loads the live site, so the fee is gone from any APK as soon as the frontend is deployed.*
 
@@ -111,7 +113,7 @@ None of this is verifiable from this repo; tick it where it was done.
 - [ ] Sign in with the same number as a buyer and give a name.
 - [ ] Place orders from that buyer to the demo shop: one left as placed, one accepted, one delivered and rated. An unrated delivered order blocks the buyer app.
 - [ ] Set a reminder 5 months out to renew the demo shop, because a granted pack never extends the end date. Since `77110fa` the renewal can be entered as a `RENEWAL` with **Record payment** on its page in the console, which does move the date; it is accepted only from `RENEW_REMINDER_DAYS` (7) before the end, so the reminder belongs in that last week.
-- [ ] Write a reset runbook in `docs/PLAY-STORE.md` for when a reviewer deletes an account. *Not done: PLAY-STORE.md has none on 28 September.*
+- [x] Write a reset runbook in `docs/PLAY-STORE.md` for when a reviewer deletes an account. *Done on 17 October 2026: *Resetting the demo account*.*
 
 ### Draft text for Play Console → App access
 

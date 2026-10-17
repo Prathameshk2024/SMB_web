@@ -88,17 +88,12 @@ Security practices:
   night, the dated nightly copies for 30 days (`BACKUP_KEEP_DAYS`), the
   monthly ones for 12 months. The same list is on the `/delete-account` page
   (`del.whatStays`); Play compares the two, so change both.
-- **Two gaps in that agreement, found 28 September 2026:**
-  - Inside the APK the deletion page reads `del.whatStays.apk`, a twin made
-    in `77110fa` to drop the ₹50, and it was not updated by `6b21fa5`. It
-    names only orders and fees: no reviews, complaints, blocked number or
-    backups. The URL Play opens is a browser and gets the full text, but a
-    user in the app reads less than the policy says. Bring the twin level
-    with `del.whatStays`, minus the price.
-  - The privacy policy's backup sentence names the nightly mirror and the
-    monthly copies but not the 30 days of dated nightly copies. It is not
-    false (all are gone within 12 months, which is what the deletion page
-    says), but "the dated copies within 12 months" would be exact.
+- **The two gaps found on 28 September 2026 are closed.** The in-APK
+  deletion text (`del.whatStays.apk`) was brought level with `del.whatStays`
+  in `b3df936`. The privacy policy's backup sentence now names all three
+  periods (next night, 30 days, 12 months), and `backend/scripts/backup.ts`
+  caps `BACKUP_KEEP_DAYS` at 30 as it caps the months at 12, so no
+  environment variable can make the sentence untrue.
 
 ## Other declarations
 
@@ -150,9 +145,10 @@ Security practices:
 
 ## Before submitting: things the policy promises that need checking
 
-- **Backups.** The privacy policy and the delete page say deleted
-  information leaves the nightly backup the next night and the dated monthly
-  copies within 12 months. The code keeps that with nobody in the loop: the
+- **Backups.** The privacy policy says deleted information leaves the
+  nightly backup the next night, the dated daily copies within 30 days and
+  the dated monthly copies within 12 months; the delete page says 12 months.
+  The code keeps that with nobody in the loop: the
   nightly GitHub run mirrors deletions into Backup Firestore A, removes from
   the backup Cloudinary what the live one has destroyed (`photosToPrune`),
   and stores the dated copies in Backup A's `snapshots` collection, pruning
@@ -163,10 +159,106 @@ Security practices:
   a commit to the repository, and emails a warning first; re-enable it from
   the Actions tab. A `--local` copy on a laptop is pruned only when it is run
   again there, so delete one after the drill it was made for
-  (`docs/BACKUP.md`). And leave `BACKUP_KEEP_DAYS` alone: `backend/scripts/backup.ts`
-  caps `BACKUP_KEEP_MONTHS` at 12 but not the days, so a value over about
-  365 would keep dated nightly copies past the 12 months the policy promises.
+  (`docs/BACKUP.md`). `backend/scripts/backup.ts` caps `BACKUP_KEEP_DAYS` at
+  30 and `BACKUP_KEEP_MONTHS` at 12, so the two settings can shorten what
+  the policy says and never lengthen it.
 - **Rejected ₹50 refunds.** The seller agreement promises the money back
   within 7 working days (`FEE_REFUND_WORKING_DAYS` in
   `frontend/src/legal/operator.ts`). The app does not move money, so this is
   a promise the admin desk keeps by hand.
+
+## Resetting the demo account
+
+Google reviews every update, not only the first release, and each reviewer
+signs in with the demo numbers in *Other declarations*. The App access text
+asks them to try Delete my account, so the demo is routinely left broken for
+the next one — and a reviewer who meets a login that leads nowhere refuses
+the update for "test credentials that do not work". **Run this before every
+release you send for review**, and whenever a review comes back saying the
+login failed.
+
+Everything here is done on the live site and the admin console. The CLI
+steps need `API_URL` (the Cloud Run URL), `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+set inline, or they talk to `localhost` with a password that does not exist.
+
+### 1. Look
+
+Admin console → Sellers, search "Demo". For each demo number note:
+
+- the shop's **status** (ACTIVE, CLOSED and closing, or gone: an erased shop
+  is a CLOSED row with no phone);
+- its **subscription end date**;
+- its **orders**: is one placed, one accepted, one delivered and rated?
+
+Then sign in on the live site as a buyer with each demo number. If the
+rating screen covers the app, or the app asks for a name, the buyer side
+needs step 4 or 5.
+
+### 2. A shop closed less than 7 days ago
+
+It is closing, not erased. Either press **Reopen account** on her page in
+the console (`POST /admin/sellers/:id/restore`), or sign in as the demo
+seller and tap **Reopen my account** on My Business. Nothing was erased:
+products, slots and the end date are as they were, and the shop is back in
+the demo buyer's catalogue at once. Go to step 4.
+
+### 3. A shop already erased
+
+Closing was more than 7 days ago, `sweepClosedAccounts()` has run, and her
+number is free again. Build the shop afresh:
+
+1. On the live site, "I want to sell", sign in with the demo number, and
+   register. Shop name **Demo shop (Play review)**. For the village choose
+   **Another village** and type **Demo**, so the shop's SMB ID is
+   `SMB-DEMO-NN` and does not take a serial in a real woman's village. Any
+   Maharashtra pincode (for example `413603`).
+2. For the UPI ID use one the team controls — a reviewer may scan the QR,
+   and a stranger's ID would be paid. Never a seller's.
+3. Grant one pack: **Grant slots** on her page in the console, or
+   `npm run admin -- grant <demo phone> 1`. This makes her ACTIVE and,
+   because the new row has no term, starts six months from today.
+4. Add 2–3 products with photos (keep the photos in a folder so the next
+   reset does not have to find them again). They go to the queue.
+5. Approve them: Products → Pending in the console, or
+   `npm run admin -- products` then `approve-product <id>`.
+
+### 4. The buyer
+
+- **She closed her account:** that erases a buyer at once, and signing in
+  again makes a new, empty one. Sign in as a buyer with the demo number,
+  give a name and tick the consent box.
+- **The rating screen is up:** rate the delivered order. An unrated
+  delivered order inside 30 days locks the whole buyer app, and the
+  reviewer has no idea why.
+
+### 5. The orders a reviewer expects
+
+The App access text promises one order to accept, one to pack and one to
+confirm a UPI payment on. From the demo buyer, ordering from the demo shop:
+
+- **Placed:** one order, cash on delivery, left alone. (A reviewer who
+  closes an account cancels it first, because an open order refuses the
+  close — so it is always the one that needs replacing.)
+- **Accepted, UPI:** one order paid by UPI. As the seller, accept it (skip
+  the delivery-time question). As the buyer, enter a 12-digit UTR. **Every
+  reset needs a new UTR**: the same number is refused on a second order.
+- **Delivered and rated:** one cash order. As the seller accept, pack, send
+  and mark delivered; as the buyer rate it, or the buyer app locks.
+
+### 6. The shop's term
+
+A granted pack never extends a term, so the demo shop goes off the shelf
+six months after it was set up. In its last 7 days, **Record payment** on
+her page in the console, For: Renewal, Paid by: Other, note "Demo account
+for Play review — no money received". It moves the date six months. It also
+adds ₹50 to the dashboard's subscription revenue, so subtract the demo
+renewals when that figure is reported. Set a calendar reminder for the week
+before the date shown on her page.
+
+### 7. Check it as a reviewer would
+
+Sign out everywhere. With **each** demo number, sign in as a buyer and see
+the demo shop and its products; sign in as a seller and see the three
+orders. If either number fails at the OTP, check its Demo Credential in
+MSG91 before anything else — no SMS is sent to these numbers, so a missing
+credential looks like a code that never arrives.
