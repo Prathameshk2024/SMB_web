@@ -43,8 +43,13 @@ export const COURTS = {
   mr: 'छत्रपती संभाजीनगर',
 } as const
 
-export const GRIEVANCE_ACK_HOURS = 48
-export const GRIEVANCE_RESOLVE_DAYS = 30
+/**
+ * The IT Rules 2021 ask an intermediary for 24 hours and 15 days, stricter
+ * than the E-Commerce Rules' 48 hours and a month. The officer's signed
+ * appointment order says the same numbers; change one, change the other.
+ */
+export const GRIEVANCE_ACK_HOURS = 24
+export const GRIEVANCE_RESOLVE_DAYS = 15
 
 /** Wrong or damaged goods must be reported to the seller within this. */
 export const RETURN_REPORT_HOURS = 24
