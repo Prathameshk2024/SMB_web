@@ -72,8 +72,8 @@ documents on 23 September (§4, *Where this lands*).
 | Cloudinary stored | ~7 MB (94 photos, 6.8 MB) | ~0.35 GB | ~3.5 GB |
 | Cloudinary delivered a month | tiny | ~2.5 GB | ~24 GB |
 | Cloudinary credits a month | under 1 | ~3–4 | **~30** |
-| Vercel requests a month | tiny | ~90,000 | **~900,000** |
-| Vercel transfer a month | tiny | ~3 GB | ~25 GB |
+| Vercel requests a month (app ~20 per open + one per first view of a photo, since 24 Oct) | tiny | ~150,000 | **~1,500,000** |
+| Vercel transfer a month (app + the photos, since 24 Oct) | tiny | ~5.5 GB | ~50 GB |
 | SMS a month | ~400 while testing (243 codes sent 5–22 Sep) | ~400 (~₹100) | ~4,000 (~₹1,000) |
 
 Growth at pilot level is roughly **2,000 Firestore documents a month**.
@@ -296,6 +296,12 @@ transformations**, and there are 25 a month.
   26 September 2026 they are plain lazy `<img>`s; before that every card on a
   list downloaded its photo on mount, whether or not she scrolled to it. The
   admin screens load photos and screenshots **full size**.
+  **Since 24 October 2026 the seller and buyer app fetches photos through
+  Vercel** (`/photo/…`, see §7), which fetches them from Cloudinary. The bytes
+  and transformations Cloudinary counts are unchanged — Vercel asks for
+  exactly what the phone used to — but Cloudinary's viewer analytics now show
+  Vercel's addresses, not phones in Maharashtra. The admin console still reads
+  Cloudinary directly.
 - **Ceiling**: at about **2,500–3,000 buyers active in a month** the 25 credits
   run out, nearly all of it delivery. The next plan up costs real money each
   month.
@@ -323,6 +329,33 @@ visit is about 1 MB (143 KB of compressed JavaScript, CSS, up to ~860 KB of
 bundled photos); later visits mostly revalidate. Every app open, including
 each launch of the APK, is roughly 20 requests, so **requests run out before
 transfer** — around the district size in §3.
+
+**Product photos pass through Vercel too, since 24 October 2026.** Google
+Play's reviewer loaded the site and the API but never got an answer from
+`res.cloudinary.com`, and refused the release over a catalogue of empty boxes
+(`docs/PLAY-STORE.md`, *Review history*). So the app asks for each photo at
+`/photo/<cloud>/…` on its own origin and `frontend/vercel.json` rewrites that
+to Cloudinary. What it costs here:
+
+- **One Vercel request and the photo's bytes (20–80 KB) per first view** in a
+  given browser. Repeat views come from the browser's 30-day cache and touch
+  nothing. A buyer who scrolls the whole catalogue on a fresh phone is about
+  30 requests and ~1.2 MB.
+- **Vercel's edge does not cache them.** Cloudinary marks transformed images
+  `Cache-Control: private`, so every first view is also a fetch from Vercel
+  to Cloudinary. Cloudinary's own credits are therefore unchanged (§6).
+- **The request ceiling arrives sooner**: at district size the photos add
+  ~600,000 requests a month to the app's ~900,000, past Hobby's million at
+  about two-thirds of that size rather than all of it. Transfer stays well
+  inside 100 GB at every size in §3.
+- **The lever, when the Usage tab shows it climbing**, is caching at Vercel's
+  edge: a `headers` entry for `/photo/(.*)` in `vercel.json` overriding
+  Cloudinary's `private` with a public `s-maxage`, so a thumbnail one phone
+  has fetched is served from Mumbai to the next without a request to
+  Cloudinary. Not worth doing until the numbers say so; it is in
+  `docs/FUTURE-SCOPE.md`.
+- Latency adds one hop — phone to Vercel's Mumbai edge, edge to Cloudinary's
+  CDN — tens of milliseconds on photos this small.
 
 Hobby's terms cover personal, non-commercial use. Whether a marketplace
 charging ₹50 subscriptions fits that is worth checking before it grows.
@@ -414,7 +447,10 @@ To replace the estimates in this file with real figures:
 - Firebase console for `smb-backup-99778` — its Usage tab and stored bytes;
 - Cloudinary dashboard — credits used this month, and the plan, for both
   accounts;
-- Vercel → Usage, and the plan on both projects;
+- Vercel → Usage, and the plan on both projects. On the frontend project,
+  edge requests and fast data transfer now include every first view of a
+  photo (§7); if requests head towards the plan's million a month, the edge
+  cache in §7 is the next step;
 - MSG91 — the per-SMS rate on the account.
 
 ---

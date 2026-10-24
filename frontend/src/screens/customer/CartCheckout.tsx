@@ -17,6 +17,7 @@ import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
 import { PaySteps } from '../../components/PayFromPhone.js'
 import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
+import { ownOriginPhoto } from '../../lib/photoUrl.js'
 import { customerCanCancel, sellerCanCancel } from '@shared/orderCancel.js'
 import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
 import { Avatar } from '../../components/Avatar.js'
@@ -652,6 +653,9 @@ export function TrackOrder() {
   const [utr, setUtr] = useState('')
   const [payErr, setPayErr] = useState('')
   const [fixingUtr, setFixingUtr] = useState(false)
+  // Her QR is fetched from this site's origin like every photo (photoUrl.ts);
+  // the stored Cloudinary URL is the fallback.
+  const [qrDirect, setQrDirect] = useState(false)
 
 
   /**
@@ -851,7 +855,8 @@ export function TrackOrder() {
                   generated link carries the amount and the order id. */}
               {seller?.upiQrUrl && (
                 <img
-                  src={seller.upiQrUrl}
+                  src={qrDirect ? seller.upiQrUrl : ownOriginPhoto(seller.upiQrUrl)}
+                  onError={() => setQrDirect(true)}
                   alt={t('cus.payTo')}
                   style={{ width: 170, margin: '0 auto', borderRadius: 'var(--r-sm)' }}
                 />

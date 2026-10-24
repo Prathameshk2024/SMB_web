@@ -24,7 +24,17 @@ export default defineConfig({
     port: 5173,
     host: true,
     fs: { allow: [here, shared] },
-    proxy: { '/api': { target: 'http://localhost:4000', changeOrigin: true } },
+    proxy: {
+      '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      // Photos are fetched at this origin and passed on to Cloudinary - in
+      // production by the rewrite in vercel.json, here by this. The two must
+      // agree on the path (src/lib/photoUrl.ts, held by tests/photo-url.test.ts).
+      '/photo': {
+        target: 'https://res.cloudinary.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/photo\/([^/]+)\//, '/$1/image/upload/'),
+      },
+    },
   },
   build: { outDir: 'dist', sourcemap: true },
 })

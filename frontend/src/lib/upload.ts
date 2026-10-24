@@ -183,15 +183,6 @@ export async function uploadImage(
   })
 }
 
-/**
- * Ask Cloudinary for exactly the size we render, in whatever format the
- * browser prefers. Serving a 1200px master into a 150px card wastes most of
- * the bytes; `f_auto,q_auto` typically halves them again with WebP/AVIF.
- */
-export function cloudinaryThumb(url: string, width: number): string {
-  if (!url.includes('/image/upload/')) return url
-  return url.replace(
-    '/image/upload/',
-    `/image/upload/f_auto,q_auto,c_fill,w_${width},h_${width}/`,
-  )
-}
+// Kept for its importers; the photo URL rules moved to photoUrl.ts when the
+// app started fetching photos from its own origin.
+export { cloudinaryThumb } from './photoUrl.js'

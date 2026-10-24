@@ -287,11 +287,20 @@ will then block.
 
 ### Both projects need their `vercel.json` — it is already in the repo
 
-`frontend/vercel.json` and `admin/vercel.json` each hold one rewrite:
+`frontend/vercel.json` and `admin/vercel.json` each hold this rewrite:
 
 ```json
 { "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
 ```
+
+`frontend/vercel.json` holds a second one **before** it, `/photo/:cloud/:path*`
+→ `https://res.cloudinary.com/:cloud/image/upload/:path*`, so that product
+photos and the seller's QR are fetched from the site's own origin and Vercel
+passes them on to Cloudinary. Google Play's reviewer loaded the site and the
+API but never got an answer from Cloudinary, and refused the release over a
+catalogue of empty boxes (24 October 2026). Order matters: behind the
+catch-all, every photo would be answered with `index.html`.
+`frontend/tests/photo-url.test.ts` holds the rewrite to the URL the app builds.
 
 Both apps route in the browser. Vercel knows nothing about `/seller/orders` or
 `/payments`, so without this, **reloading any page other than the home page
@@ -419,6 +428,7 @@ passes:
 - [ ] `ADMIN_UPI_*` either unset (the college account) or checked character by character against the account's own UPI app
 - [ ] No `BACKUP_*` variable on Cloud Run
 - [ ] `/robots.txt` on the admin URL answers `Disallow: /` — it is committed as `admin/public/robots.txt`, so check it is served rather than add it
+- [ ] `/photo/wvd4cteq/v1/x.jpg` on the frontend URL answers **Cloudinary's** 404 (an empty body, not the site's `index.html`) — the photo rewrite in `frontend/vercel.json` is live and ahead of the SPA catch-all. Without it every product card is an empty box, which is what Google Play refused on 24 October 2026
 
 ---
 

@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/photo/:cloud/:path*",
+      "destination": "https://res.cloudinary.com/:cloud/image/upload/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

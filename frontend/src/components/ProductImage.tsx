@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { categoryPhoto } from '../lib/categoryPhoto.js'
-import { cloudinaryThumb } from '../lib/upload.js'
+import { cloudinaryThumb, ownOriginPhoto } from '../lib/photoUrl.js'
 import { IconProduct } from './icons.js'
 
 /**
@@ -40,18 +40,25 @@ export default function ProductImage({
 }) {
   // Ask Cloudinary for the exact rendered size rather than the 1200px master.
   // A 150px card pulling a 1200px file wastes ~95% of the bytes.
-  const wanted = src ? cloudinaryThumb(src, (size ?? 400) * 2) : undefined
+  const direct = src ? cloudinaryThumb(src, (size ?? 400) * 2) : undefined
+  // Asked for at this site's own origin first (see photoUrl.ts): Play's
+  // reviewer loaded the site and never got an answer from Cloudinary, and a
+  // catalogue of beige boxes was refused as placeholder content. The direct
+  // URL is second, for the day the rewrite is what is broken.
+  const own = direct ? ownOriginPhoto(direct) : undefined
+  const candidates = own && own !== direct ? [own, direct!] : direct ? [direct] : []
 
-  // Which URL failed, not whether one did: the same component is handed the
+  // Which URLs failed, not whether one did: the same component is handed the
   // next product's photo when the screen changes, and one broken photo must
   // not stick to it.
-  const [failedUrl, setFailedUrl] = useState<string>()
+  const [failed, setFailed] = useState<string[]>([])
+  const wanted = candidates.find((u) => !failed.includes(u))
 
   const box: React.CSSProperties = size
     ? { width: size, height: size, borderRadius: rounded }
     : { width: '100%', aspectRatio: '1', borderRadius: rounded }
 
-  if (!wanted || failedUrl === wanted) {
+  if (!wanted) {
     // A photograph of the seller's category beats a bare icon, and it is a
     // bundled asset, so it needs no request and cannot itself fail to load.
     const stockPhoto = categoryPhoto(categoryId)
@@ -95,7 +102,7 @@ export default function ProductImage({
       loading="lazy"
       decoding="async"
       style={{ ...box, objectFit: 'cover' }}
-      onError={() => setFailedUrl(wanted)}
+      onError={() => setFailed((f) => [...f, wanted])}
     />
   )
 }

@@ -392,9 +392,12 @@ What building it means, measured on the copy of 23 September 2026:
 - **Then the backups**: the backup Cloudinary becomes the account the app
   depends on — it should stop being a backup target, and a new backup account
   take its place, before the nightly workflow is re-enabled.
-- `frontend/src/lib/upload.ts` inserts resizing options after
-  `/image/upload/` when it draws a photo. It keeps the host and the cloud
-  name, so it needs no change.
+- `frontend/src/lib/photoUrl.ts` inserts resizing options after
+  `/image/upload/` when it draws a photo, then rewrites the URL to
+  `/photo/<cloud>/…` on the site's own origin, taking the cloud name from the
+  stored URL. The Vercel rewrite that serves that path (`frontend/vercel.json`)
+  passes the cloud name through as well, so neither needs a change when the
+  account does. The admin console still reads the stored URL directly.
 
 ### Practise it
 

@@ -419,6 +419,8 @@ Profile B as a registered customer.
 | ID | What to do | What must happen |
 |---|---|---|
 | ☐ G1 | Open `/shop` | Products from all three seed sellers: photo (or category picture), name, price, stars only when rated, and an "टोपलीत टाका" / "Add to cart" control. The seller card is on the product and shop pages, not the grid |
+| ☐ G1a | With Cloudinary on, open `/shop` with devtools → Network filtered to images | Every product photo is requested from **this site's origin**, `/photo/<cloud>/f_auto,q_auto,c_fill,w_…/v…/….jpg`, never from `res.cloudinary.com` directly (`ownOriginPhoto()` in `lib/photoUrl.ts`; in dev the Vite proxy forwards it, on Vercel the rewrite in `frontend/vercel.json`). Google Play's reviewer could reach the site but not Cloudinary, and refused a catalogue of empty boxes (24 Oct 2026) |
+| ☐ G1b | In devtools → Network, add a request-blocking pattern `*/photo/*`, reload | Each card tries the direct `res.cloudinary.com` URL next and shows the photo. Block `*cloudinary.com*` as well and reload: the card shows its **category photograph** (or the product icon for a category without one) — never a broken-image frame, never a bare box that stays |
 | ☐ G2 | Look for `p4` (घरगुती तूप, PENDING) | **Not present** — only LIVE products from ACTIVE, open sellers whose term has not ended |
 | ☐ G3 | Search `लोणचे` | आंब्याचे लोणचे matches |
 | ☐ G4 | Search `pickle` | Also matches — search covers `nameEn` |
@@ -735,6 +737,8 @@ Run these across both apps.
 | ☐ O13 | After O11, change something about that seller *before* restarting (edit her profile, take an order) | The document is **recreated** in Firestore: the diffed write sees a record that differs from the boot snapshot and sends it. Never edit data in the console against a running API |
 | ☐ O14 | With Firestore on and more than 5 documents in a collection, cause a persist that would delete more than half of it (e.g. `npm run purge:demo -- --commit` on a mostly-demo database, without the override) | The write is **refused**: `[firestore] REFUSED to delete x/y docs in <collection>`, and the documents stay. `ALLOW_BULK_DELETE=true` on that one command is the only override |
 | ☐ O15 | Make Firestore refuse a write (revoke the key briefly) | The write is retried every 60 seconds and lands once the key works again |
+| ☐ O16 | On the **live** site, open `/photo/wvd4cteq/v1/x.jpg` | Cloudinary's 404 with an empty body — not the site's HTML. If HTML comes back, the photo rewrite in `frontend/vercel.json` is missing or behind the catch-all, and every product card on every phone is an empty box |
+| ☐ O17 | On a buyer's order screen for a UPI seller who uploaded her own QR, block `*/photo/*` in devtools and reload | Her QR still shows — the `<img>` falls back to the stored Cloudinary URL on error (`TrackOrder` in `CartCheckout.tsx`) |
 
 ---
 

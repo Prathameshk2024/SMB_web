@@ -71,6 +71,14 @@ would catch them — clear the note there too when one is fixed. Worst first.
 
 ### Wrong or missing in the seller and buyer app
 
+- **Four live listings print "g" or "piece" alone under the price** (*added
+  24 October 2026*). They were made before a pack size was asked and have
+  none, so `sizeLabel()` prints the unit by itself — on purpose, rather than
+  invent a number. On a card it reads like placeholder text, and Google
+  Play's rejection screenshot of that day shows it. It is data, not code:
+  their seller (or an admin) adds a size through the edit screen, which
+  counts as one of her two edits. Decide whether a bare unit on a **card**
+  should print nothing instead; the cart and order lines keep it.
 - **A buyer's reason for closing her account is thrown away.** The sheet
   makes her pick one; `api.closeCustomerAccount` sends only `{ confirm }` and
   `POST /customers/me/close` reads nothing else. Send and store it as the
@@ -161,6 +169,48 @@ Done also means:
 - `LIVE_CLOUDINARY_API_KEY` / `_SECRET` in the same workflow are also the
   live account's full keys. If the Cloudinary plan allows a key with
   restricted permissions, the same reasoning applies.
+
+## Cache photos at Vercel's edge
+
+*Added 24 October 2026.*
+
+Since the Play rejection of that day, the seller and buyer app fetches every
+photo at `/photo/<cloud>/…` on its own origin, and `frontend/vercel.json`
+rewrites it to Cloudinary (`CLAUDE.md`, *Product photos*). Each first view of
+a photo in a given browser is now one Vercel edge request plus its bytes, and
+Vercel's edge caches none of it because Cloudinary marks transformed images
+`Cache-Control: private` — so every first view is also a fetch to Cloudinary.
+At district size (`docs/CAPACITY.md` §3) that is ~600,000 requests a month on
+top of the app's ~900,000, past the Hobby plan's million.
+
+Done means a `headers` entry for `/photo/(.*)` in `frontend/vercel.json` that
+overrides the cache header with a public `s-maxage` of a month (the stored
+URL carries a version, so a changed photo is a new URL and nothing goes
+stale), Vercel → Usage showing cache hits on that path, and the numbers in
+`CAPACITY.md` §3 and §7 revised. Do it when Usage shows requests climbing
+towards the limit, not before; the bytes and the Cloudinary credits do not
+change either way.
+
+## Photos where Cloudinary cannot be reached: what is still direct
+
+*Added 24 October 2026.*
+
+The rewrite above covers what the catalogue and the order screen **show**.
+Two paths still talk to Cloudinary from the phone, and would fail on a network
+like the Play reviewer's:
+
+- **Uploads.** `uploadImage()` in `frontend/src/lib/upload.ts` posts the
+  compressed file straight to `api.cloudinary.com` with a signature from
+  `/api/uploads/signature`. A reviewer registering as a seller, or adding a
+  product, would be stopped at the photo step. Routing a multipart POST
+  through a Vercel rewrite is untested and may hit a body-size limit; the
+  honest alternative is accepting the upload at the API and forwarding it,
+  which puts photo bytes through Cloud Run for the first time. Decide only if
+  a review fails there.
+- **The admin console** reads product photos, QRs and payment screenshots
+  from `res.cloudinary.com` directly. Staff are on the college network, not a
+  review farm, so it was left alone; `admin/vercel.json` would need the same
+  rewrite and the console its own `ownOriginPhoto()` to change that.
 
 ## Move the photos to a new Cloudinary account
 

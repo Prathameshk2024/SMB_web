@@ -262,3 +262,24 @@ the demo shop and its products; sign in as a seller and see the three
 orders. If either number fails at the OTP, check its Demo Credential in
 MSG91 before anything else — no SMS is sent to these numbers, so a missing
 credential looks like a code that never arrives.
+
+## Review history
+
+- **24 October 2026 — rejected, Broken Functionality, "Incorrect placeholder
+  content"** (version code 1, `IN_APP_EXPERIENCE-2850.png`). Six screenshots
+  of the buyer's catalogue in which every product card is the beige box drawn
+  under a photo that has not loaded. Names, prices, the cart and the bundled
+  category tiles are all there, so the reviewer's device reached Vercel and
+  Cloud Run; no card shows its category photograph, so no photo *failed* —
+  `res.cloudinary.com` simply never answered. Fixed by fetching photos from
+  the site's own origin (`/photo/…`, rewritten to Cloudinary by
+  `frontend/vercel.json`; see *Product photos* in `CLAUDE.md`). A Vercel
+  deploy of `frontend/` is the whole fix — the APK loads the live site — but
+  Play reviews only a new upload, so resubmit the same build (or a new version
+  code) from Publishing overview after the deploy is live, and check
+  `https://shantai-mahila-bajar-app-frontend.vercel.app/photo/wvd4cteq/v1/x.jpg`
+  answers from Cloudinary (a 404 *from Cloudinary*, not `index.html`) first.
+  The screenshot also shows "g" and "piece" alone under four prices: those
+  listings were made before a size was asked and have none. Ask their seller
+  to add one, or an admin to; the card prints the unit alone on purpose rather
+  than invent a number.
