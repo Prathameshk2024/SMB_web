@@ -234,6 +234,12 @@ database** from Firestore before the first request is answered. For a seller on
 a rural connection that wait reads as a broken app. `--min-instances 1` keeps
 one warm and is billed for it.
 
+The seller and buyer app absorbs most of it without that: a **read** that fails
+in the way a booting instance fails — a dropped connection, or a 429/5xx that
+did not come from our API — is asked once more after three seconds
+(`frontend/src/lib/coldStart.ts`). Writes are never resent, and a cold start
+longer than the first wait plus three seconds still shows the screen's error.
+
 Stopping itself is safe: Cloud Run sends `SIGTERM` ten seconds before it kills
 an instance, and `backend/src/index.ts` flushes pending writes on it, so the
 400 ms write-coalescing window is not lost.

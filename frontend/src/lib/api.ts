@@ -10,6 +10,7 @@ import type { ComplaintSubject } from '@shared/complaint.js'
 import type { PolicyAcceptance } from '@shared/legal.js'
 import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
 import type { LangCode } from '../i18n/strings.js'
+import { COLD_START_RETRY_MS, worthOneRetry, type Failure } from './coldStart.js'
 
 /**
  * The single seam between the app and the server.
@@ -121,16 +122,31 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+  // A server waking from idle - see coldStart.ts. One more try, reads only.
+  const retryable = (failure: Failure) => !retried && worthOneRetry(init?.method, failure)
+  const again = async (): Promise<T> => {
+    await pause(COLD_START_RETRY_MS)
+    return request<T>(path, init, true)
+  }
+
   const token = getToken()
-  const res = await fetch(`${BASE}/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/api${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+    })
+  } catch (err) {
+    if (retryable({ kind: 'network' })) return again()
+    throw err
+  }
 
   // The server slides the session forward: past halfway through the idle
   // window it hands back a freshly stamped token. Swapping it in here is what
@@ -142,6 +158,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const text = await res.text()
+
+  if (!res.ok && retryable({ kind: 'status', status: res.status, text })) return again()
 
   /**
    * An EMPTY 5xx is not our API answering badly - every failure it raises
