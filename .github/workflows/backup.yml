@@ -9,10 +9,10 @@ on:
         description: Report only, write nothing
         type: boolean
         default: true
-    allow_bulk_delete:
-      description: Allow deleting data missing from live systems
-      type: boolean
-      default: false
+      allow_bulk_delete:
+        description: Allow deleting data missing from live systems
+        type: boolean
+        default: false
 
 concurrency: backup              # never two runs at once
 
