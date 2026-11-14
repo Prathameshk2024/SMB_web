@@ -39,3 +39,4 @@ jobs:
           BACKUP_TARGETS: a
           BACKUP_A_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.BACKUP_A_FIREBASE_SERVICE_ACCOUNT }}
           BACKUP_A_CLOUDINARY_URL: ${{ secrets.BACKUP_A_CLOUDINARY_URL }}
+          ALLOW_BULK_DELETE: ${{ inputs.allow_bulk_delete && 'true' || '' }}
